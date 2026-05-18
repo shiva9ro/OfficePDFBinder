@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Nuitka / installer build outputs
+OfficePDFBinder_Main.build/
+OfficePDFBinder_Main.dist/
+Output/
+*.build/
+*.dist/
+*.spec
+
+# Generated distribution files
+source.zip
+*.exe
+*.msi
+
+# Local backups and scratch folders
+Backup/
+20251203_Backup/
+temp_check_iss/
+
+# Local editor settings
+.vscode/
+.idea/
+AGENTS.md
+AGENTS.local.md
+
+# Local test and sample artifacts
+tests/
+samples/
+docs/presentation/
+docs/OfficePDFBinder_Main.pdf
+OfficePDFBinder_Main.py.txt
+
+# Logs
+*.log
+nuitka-crash-report.xml
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
