@@ -1,9 +1,10 @@
 #ifndef MyAppVersion
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #endif
 
 [Setup]
 AppName=Office PDF Binder
+AppId={{85651C7D-2D19-4AD3-A127-173365C70370}
 AppVersion={#MyAppVersion}
 AppPublisher=Takeshi Kashiwagi
 AppCopyright=Takeshi Kashiwagi
@@ -33,6 +34,11 @@ Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "NOTICE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.html"; DestDir: "{app}"; Flags: ignoreversion
 Source: "source.zip"; DestDir: "{app}"; Flags: ignoreversion
+Source: "app.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "docs\images\*"; DestDir: "{app}\docs\images"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{userappdata}\OfficePDFBinder"
 
 [Icons]
 Name: "{group}\Office PDF Binder"; Filename: "{app}\OfficePDFBinder_Main.exe"
@@ -70,12 +76,45 @@ function GetDriveType(lpRootPathName: String): Integer;
 const
   DRIVE_REMOTE = 4;
 
+function IsLegacyInstallPresent(): Boolean;
+var
+  DisplayVersion: String;
+begin
+  Result := False;
+
+  if RegQueryStringValue(HKCU,
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\Office PDF Binder_is1',
+    'DisplayVersion', DisplayVersion) then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  if RegQueryStringValue(HKLM,
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\Office PDF Binder_is1',
+    'DisplayVersion', DisplayVersion) then
+  begin
+    Result := True;
+    Exit;
+  end;
+end;
+
 function InitializeSetup(): Boolean;
 var
   InstallerPath: String;
   DrivePath: String;
   DriveType: Integer;
 begin
+  if IsLegacyInstallPresent() then
+  begin
+    MsgBox('旧バージョンの Office PDF Binder がインストールされています。' + #13#10 + #13#10 +
+           'v1.0.0 から v1.1.0 へ更新する場合は、先に旧バージョンをアンインストールしてから、このインストーラーを再実行してください。' + #13#10 + #13#10 +
+           'インストールを中止します。',
+           mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
   InstallerPath := ExpandConstant('{src}');
   
   // ネットワークパスかどうかをチェック

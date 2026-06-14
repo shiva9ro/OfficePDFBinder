@@ -81,6 +81,13 @@ html_template = """<!DOCTYPE html>
             border-top: 1px solid #ddd;
             margin: 20px 0;
         }}
+        img {{
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }}
     </style>
 </head>
 <body>

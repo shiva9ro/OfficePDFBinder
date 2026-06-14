@@ -16,7 +16,17 @@ $SelfScriptName = "build_installer.ps1"
 
 $ProductName = "Office PDF Binder"
 $InternalName = "OfficePDFBinder_Main"
-$AppVersion = "1.0.0"
+$VersionFile = "version.py"
+if (-not (Test-Path $VersionFile)) {
+    Write-Host "[ERROR] $VersionFile がありません" -ForegroundColor Red
+    exit 1
+}
+$VersionContent = Get-Content $VersionFile -Raw
+if ($VersionContent -notmatch 'APP_VERSION\s*=\s*"([^"]+)"') {
+    Write-Host "[ERROR] $VersionFile から APP_VERSION を読み取れません。" -ForegroundColor Red
+    exit 1
+}
+$AppVersion = $Matches[1]
 $CompanyName = "Takeshi Kashiwagi"
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
@@ -56,12 +66,14 @@ $SourceFiles = @(
     $ScriptName,
     $IssFile,
     $IconFile,
+    $VersionFile,
     "LICENSE.txt",
     "NOTICE.txt",
     $SelfScriptName,
     "convert_readme.py",
     "README.md",
-    "README.html"
+    "README.html",
+    "docs\images"
 )
 $Missing = $false
 foreach ($f in $SourceFiles) {
