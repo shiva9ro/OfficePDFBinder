@@ -1,0 +1,60 @@
+name: 改善要望
+description: Office PDF Binder の改善案や新機能を提案する
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        改善要望ありがとうございます。
+
+        個人情報、業務情報、内部資料、非公開ファイルは添付しないでください。
+        具体的な業務例を書く場合も、公開可能な範囲でお願いします。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 困っていること
+      description: どのような作業で困っているかを書いてください。
+      placeholder: "例: 大量のPDFを並べ替えるとき、目的のページを探しにくい"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 希望する動作
+      description: どのように改善されるとよいかを書いてください。
+      placeholder: "例: ファイル名やページ番号で検索できるようにしたい"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 関係する機能
+      options:
+        - ファイル追加
+        - ページ並び替え
+        - PDF保存
+        - Word / Excel / PowerPoint 変換
+        - ヘッダー・フッター
+        - しおり
+        - エクスポート
+        - インストール / アンインストール
+        - UI / 操作性
+        - その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 代替手段
+      description: 現在どのように回避しているか、既存ソフトで代替できるかなどを書いてください。
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 補足
+      description: ほかに伝えておきたいことがあれば書いてください。
