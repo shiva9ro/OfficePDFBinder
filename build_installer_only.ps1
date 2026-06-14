@@ -5,7 +5,17 @@
 
 $IssFile        = "setup_office_binder.iss"
 $SelfScriptName = "build_installer_only.ps1"
-$AppVersion     = "1.0.0"
+$VersionFile    = "version.py"
+if (-not (Test-Path $VersionFile)) {
+    Write-Host "[ERROR] $VersionFile がありません" -ForegroundColor Red
+    exit 1
+}
+$VersionContent = Get-Content $VersionFile -Raw
+if ($VersionContent -notmatch 'APP_VERSION\s*=\s*"([^"]+)"') {
+    Write-Host "[ERROR] $VersionFile から APP_VERSION を読み取れません。" -ForegroundColor Red
+    exit 1
+}
+$AppVersion     = $Matches[1]
 
 # 現在の conda 環境を優先。未設定の場合はパスから python を検索。
 if ($Env:CONDA_PREFIX -and (Test-Path (Join-Path $Env:CONDA_PREFIX "python.exe"))) {
@@ -41,13 +51,15 @@ $SourceFiles = @(
     "OfficePDFBinder_Main.py",
     $IssFile,
     "app.ico",
+    $VersionFile,
     "LICENSE.txt",
     "NOTICE.txt",
     "build_installer.ps1",
     $SelfScriptName,
     "convert_readme.py",
     "README.md",
-    "README.html"
+    "README.html",
+    "docs\images"
 )
 
 $Missing = $false

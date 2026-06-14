@@ -18,6 +18,7 @@ from PySide6.QtCore import (
     QObject,
     QPoint,
     QRunnable,
+    QRect,
     QSize,
     Qt,
     QThreadPool,
@@ -28,6 +29,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QAction,
+    QColor,
     QDesktopServices,
     QDrag,
     QDragEnterEvent,
@@ -38,6 +40,7 @@ from PySide6.QtGui import (
     QKeySequence,
     QMouseEvent,
     QPainter,
+    QPen,
     QPixmap,
     QWheelEvent,
 )
@@ -73,6 +76,18 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+_STARTUP_TIME = time.perf_counter()
+INITIAL_WINDOW_X = 100
+INITIAL_WINDOW_Y = 100
+INITIAL_WINDOW_WIDTH = 900
+INITIAL_WINDOW_HEIGHT = 800
+MIN_WINDOW_WIDTH = 760
+MIN_WINDOW_HEIGHT = 560
+WINDOW_SCREEN_MARGIN = 40
+APP_ICON_FILENAME = "app.ico"
+
+from version import APP_NAME, APP_VERSION
 
 # --- Optional libraries ---
 try:
@@ -154,7 +169,8 @@ class DropListWidget(QListWidget):
         self._drop_row = -1  # ドロップ位置（描画用）
         self._pressed_item = None  # マウスボタンを押したときのアイテム
         self._is_dragging = False  # ドラッグ中かどうか
-        self._pressed_selected_count = 0  # 押した時点での選択数
+        self._pressed_item_was_selected = False
+        self._drag_candidate_items = []
         self._drag_timer = QTimer()  # 長押し検出用タイマー
         self._drag_timer.setSingleShot(True)
         self._drag_timer.timeout.connect(self._enable_drag_mode)
@@ -304,10 +320,22 @@ class DropListWidget(QListWidget):
             self._pressed_item = item
             self._is_dragging = False
             self._drag_mode_enabled = False
-            # 押された時点での選択状態を記録
-            self._pressed_selected_count = len(self.selectedItems())
-            # 長押し検出タイマーを開始（300ms）- マウスを動かさずに長押しした場合のみ有効
-            self._drag_timer.start(300)
+            self._pressed_item_was_selected = bool(item and item.isSelected())
+            self._drag_candidate_items = (
+                self.selectedItems().copy() if self._pressed_item_was_selected else []
+            )
+
+            modifiers = event.modifiers()
+            is_multi_select_operation = bool(
+                modifiers
+                & (
+                    Qt.KeyboardModifier.ControlModifier
+                    | Qt.KeyboardModifier.ShiftModifier
+                )
+            )
+            if item and not is_multi_select_operation:
+                # アイテム上の通常左クリックだけを長押しDD候補にする。
+                self._drag_timer.start(QApplication.startDragTime())
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -321,44 +349,42 @@ class DropListWidget(QListWidget):
             super().mouseMoveEvent(event)
             return
 
-        # マウスが一定距離以上動いた場合は、ドラッグモードを無効化（選択操作中はドラッグを開始しない）
-        if hasattr(self, "_drag_start_position"):
-            move_distance = (
-                event.position().toPoint() - self._drag_start_position
-            ).manhattanLength()
-            # 5ピクセル以上動いた場合は、選択操作とみなしてドラッグモードを無効化
-            if move_distance > 5:
-                self._drag_timer.stop()
-                self._drag_mode_enabled = False
-                # 通常のマウス移動処理（範囲選択など）
-                super().mouseMoveEvent(event)
-                return
-
-        # ドラッグモードが有効（長押し）の場合のみドラッグを開始
+        # 長押し成立後の移動は、範囲選択ではなくアイテム移動DDとして扱う。
         if self._drag_mode_enabled:
-            # 選択されたアイテムがあるかチェック
-            selected_items = self.selectedItems()
-            current_selected_count = len(selected_items)
+            if self._pressed_item:
+                if self._pressed_item_was_selected:
+                    selected_items = [
+                        item
+                        for item in self._drag_candidate_items
+                        if self.row(item) >= 0
+                    ]
+                    if selected_items:
+                        self.clearSelection()
+                        for item in selected_items:
+                            item.setSelected(True)
+                else:
+                    selected_items = [self._pressed_item]
+                    self.clearSelection()
+                    self._pressed_item.setSelected(True)
 
-            # ドラッグを開始する条件：
-            # 1. ドラッグモードが有効（長押し）
-            # 2. 選択されたアイテムがある
-            # 3. 押されたアイテムが選択されている（既に選択されているアイテム上でドラッグを開始）
-            # 4. 選択状態が変化していない（複数選択中にドラッグを開始する場合）
-            if (
-                selected_items
-                and self._pressed_item
-                and self._pressed_item.isSelected()
-                and hasattr(self, "_pressed_selected_count")
-                and current_selected_count == self._pressed_selected_count
-            ):
-                # タイマーを停止
                 self._drag_timer.stop()
-                # ドラッグを開始
                 self._is_dragging = True
                 self._start_drag_for_selected_items(
                     selected_items, event.position().toPoint()
                 )
+                return
+
+        # 長押し成立前に一定距離以上動いた場合は、通常の範囲選択として扱う。
+        if hasattr(self, "_drag_start_position"):
+            move_distance = (
+                event.position().toPoint() - self._drag_start_position
+            ).manhattanLength()
+            # Qt標準のドラッグ開始距離を超えた場合は、選択操作とみなす。
+            if move_distance >= QApplication.startDragDistance():
+                self._drag_timer.stop()
+                self._drag_mode_enabled = False
+                # 通常のマウス移動処理（範囲選択など）
+                super().mouseMoveEvent(event)
                 return
 
         # 通常のマウス移動処理（範囲選択など）
@@ -376,6 +402,9 @@ class DropListWidget(QListWidget):
             # タイマーを停止
             self._drag_timer.stop()
             self._drag_mode_enabled = False
+            self._pressed_item = None
+            self._pressed_item_was_selected = False
+            self._drag_candidate_items = []
         super().mouseReleaseEvent(event)
 
     def startDrag(self, supportedActions):
@@ -405,6 +434,8 @@ class DropListWidget(QListWidget):
         self._is_dragging = False
         self._drag_mode_enabled = False
         self._pressed_item = None
+        self._pressed_item_was_selected = False
+        self._drag_candidate_items = []
         self._drag_timer.stop()
         if result == Qt.DropAction.IgnoreAction:
             self._drop_row = -1
@@ -428,8 +459,11 @@ class DropListWidget(QListWidget):
             and self._dragged_items
         ):
             painter = QPainter(self.viewport())
-            painter.setPen(Qt.GlobalColor.cyan)  # シアン色の線
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            indicator_color = QColor("#00a8ff")
+            indicator_pen = QPen(indicator_color, 4, Qt.PenStyle.SolidLine)
+            indicator_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(indicator_pen)
 
             # ドロップ位置のX座標を計算（アイテムの左端）
             if self._drop_row < self.count():
@@ -452,7 +486,17 @@ class DropListWidget(QListWidget):
 
             # 縦線を描画（上下に少し余白を持たせる）
             margin = 5
-            painter.drawLine(x, top_y + margin, x, bottom_y - margin)
+            start_y = top_y + margin
+            end_y = bottom_y - margin
+            highlight_rect = QRect(x - 7, start_y, 14, max(1, end_y - start_y))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(0, 168, 255, 70))
+            painter.drawRoundedRect(highlight_rect, 5, 5)
+            painter.setPen(indicator_pen)
+            painter.drawLine(x, start_y, x, end_y)
+            painter.setBrush(indicator_color)
+            painter.drawEllipse(QPoint(x, start_y), 6, 6)
+            painter.drawEllipse(QPoint(x, end_y), 6, 6)
 
     def wheelEvent(self, event: QWheelEvent):
         """マウスホイールイベントを処理（Ctrl+ホイールでズーム）"""
@@ -795,6 +839,7 @@ class AppWorker(QRunnable):
 
         final_doc = fitz.open()
         temp_files_to_clean = []
+        failed_office_conversions = []
         try:
             # --- ステップ1: しおり情報を準備 ---
             pending_toc_entries = []
@@ -848,6 +893,7 @@ class AppWorker(QRunnable):
 
             # Officeファイルの変換（アプリケーションを再利用、順序を保持）
             office_apps = {}  # タイプごとのアプリケーションインスタンス
+            office_conversion_started = False
             try:
                 for path, task in ordered_tasks:
                     if task["type"] not in ("word", "excel", "powerpoint"):
@@ -865,6 +911,7 @@ class AppWorker(QRunnable):
                         self.signals.non_cancellable_started.emit(
                             f"{app_name}ファイルを変換中..."
                         )
+                        office_conversion_started = True
                         office_apps[office_type] = None
 
                     app_instance = office_apps[office_type]
@@ -878,23 +925,15 @@ class AppWorker(QRunnable):
                         converter = self._convert_powerpoint_to_pdf
 
                     if converter:
-                        temp_pdf, app_instance = converter(path, app_instance)
+                        temp_pdf, app_instance = converter(
+                            path, app_instance, suppress_errors=True
+                        )
                         office_apps[office_type] = (
                             app_instance  # 更新されたインスタンスを保存
                         )
                         if not temp_pdf:
-                            self.signals.error.emit(
-                                f"{app_name}ファイルの変換に失敗しました",
-                                f"'{os.path.basename(path)}' の変換に失敗しました。\n\n"
-                                "考えられる原因:\n"
-                                "・Microsoft Officeがインストールされていない\n"
-                                "・Officeアプリケーションが他のプロセスで使用されている\n"
-                                "・ファイルが破損している\n"
-                                "・ファイル形式がサポートされていない\n\n"
-                                "解決方法:\n"
-                                "・Microsoft Officeが正しくインストールされているか確認してください\n"
-                                "・Officeアプリケーションをすべて閉じてから再試行してください\n"
-                                "・ファイルが正常に開けるか確認してください",
+                            failed_office_conversions.append(
+                                (app_name, os.path.basename(path))
                             )
                             continue
                         temp_files_to_clean.append(temp_pdf)
@@ -917,7 +956,7 @@ class AppWorker(QRunnable):
                             )
 
                 # 変換が行われた場合のみ終了シグナルを送信
-                if any(office_apps.values()):
+                if office_conversion_started:
                     self.signals.non_cancellable_finished.emit()
             except Exception:
                 # エラー時もアプリケーションを終了
@@ -949,10 +988,6 @@ class AppWorker(QRunnable):
                     source_path = task.get("converted_pdf_path")
                     if not source_path:
                         # 変換に失敗したOfficeファイルはスキップ
-                        self.signals.error.emit(
-                            "Officeファイルの変換に失敗しました",
-                            f"'{os.path.basename(path)}' の変換に失敗したため、スキップされました。",
-                        )
                         continue
                 else:
                     source_path = path
@@ -1166,6 +1201,13 @@ class AppWorker(QRunnable):
                         )
 
                 self.signals.progress.emit(95, "ファイルを最適化して保存中...")
+                if final_doc.page_count == 0:
+                    self.signals.error.emit(
+                        "保存できるページがありません",
+                        "PDFに保存できるページがありませんでした。\n\n"
+                        "Officeファイルの変換に失敗した場合は、Microsoft Officeが正しくインストールされているか確認してください。",
+                    )
+                    return
                 final_doc.save(output_path, garbage=4, deflate=True, clean=True)
 
                 # 保存後の回転状態を確認（保存したファイルを再度開いて確認）
@@ -1186,10 +1228,22 @@ class AppWorker(QRunnable):
                 except Exception as e:
                     _debug_log(f"[ROTATION DEBUG] 保存後の確認エラー: {e}")
                 self.signals.progress.emit(100, "保存完了")
+                message = f"PDFを正常に保存しました:\n{output_path}"
+                if failed_office_conversions:
+                    skipped_files = "\n".join(
+                        f"・{file_name}（{app_name}）"
+                        for app_name, file_name in failed_office_conversions
+                    )
+                    message += (
+                        "\n\n"
+                        "ただし、以下のOfficeファイルは変換に失敗したためスキップしました:\n"
+                        f"{skipped_files}\n\n"
+                        "Microsoft Officeがインストールされているか、対象ファイルをOfficeで開けるか確認してください。"
+                    )
                 self.signals.finished.emit(
                     self.task_name,
                     "保存完了",
-                    f"PDFを正常に保存しました:\n{output_path}",
+                    message,
                 )
 
         finally:
@@ -1208,17 +1262,19 @@ class AppWorker(QRunnable):
         save_as_format,
         export_format_type=None,
         app_instance=None,
+        suppress_errors=False,
     ):
         """OfficeファイルをPDFに変換（アプリケーションインスタンスを再利用可能）"""
         if not win32com:
-            self.signals.error.emit(
-                "Officeファイル処理に必要なコンポーネントが見つかりません",
-                "Officeファイルを処理するために必要なpywin32パッケージが見つかりません。\n\n"
-                "解決方法:\n"
-                "・以下のコマンドでpywin32をインストールしてください:\n"
-                "  pip install pywin32\n"
-                "・インストール後、アプリケーションを再起動してください",
-            )
+            if not suppress_errors:
+                self.signals.error.emit(
+                    "Officeファイル処理に必要なコンポーネントが見つかりません",
+                    "Officeファイルを処理するために必要なpywin32パッケージが見つかりません。\n\n"
+                    "解決方法:\n"
+                    "・以下のコマンドでpywin32をインストールしてください:\n"
+                    "  pip install pywin32\n"
+                    "・インストール後、アプリケーションを再起動してください",
+                )
             return None, None
 
         # アプリケーションインスタンスが提供されていない場合は新規作成
@@ -1239,17 +1295,18 @@ class AppWorker(QRunnable):
                 elif hasattr(app, "Visible"):
                     app.Visible = False
             except Exception as e:
-                self.signals.error.emit(
-                    f"{app_name}アプリケーションの起動に失敗しました",
-                    f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
-                    f"エラー詳細: {e}\n\n"
-                    "考えられる原因:\n"
-                    f"・{app_name}がインストールされていない\n"
-                    f"・{app_name}アプリケーションが他のプロセスで使用されている\n\n"
-                    "解決方法:\n"
-                    f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
-                    f"・{app_name}アプリケーションをすべて閉じてから再試行してください",
-                )
+                if not suppress_errors:
+                    self.signals.error.emit(
+                        f"{app_name}アプリケーションの起動に失敗しました",
+                        f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
+                        f"エラー詳細: {e}\n\n"
+                        "考えられる原因:\n"
+                        f"・{app_name}がインストールされていない\n"
+                        f"・{app_name}アプリケーションが他のプロセスで使用されている\n\n"
+                        "解決方法:\n"
+                        f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
+                        f"・{app_name}アプリケーションをすべて閉じてから再試行してください",
+                    )
                 return None, None
 
         doc = None
@@ -1282,21 +1339,22 @@ class AppWorker(QRunnable):
             # アプリケーションインスタンスを返す（再利用のため）
             return temp_pdf_path, app
         except Exception as e:
-            self.signals.error.emit(
-                f"{app_name}ファイルの変換に失敗しました",
-                f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
-                f"エラー詳細: {e}\n\n"
-                "考えられる原因:\n"
-                f"・{app_name}がインストールされていない\n"
-                f"・{app_name}アプリケーションが他のプロセスで使用されている\n"
-                "・ファイルが破損している\n"
-                "・ファイルがパスワードで保護されている\n\n"
-                "解決方法:\n"
-                f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
-                f"・{app_name}アプリケーションをすべて閉じてから再試行してください\n"
-                "・ファイルが正常に開けるか確認してください\n"
-                "・ファイルがパスワード保護されていないか確認してください",
-            )
+            if not suppress_errors:
+                self.signals.error.emit(
+                    f"{app_name}ファイルの変換に失敗しました",
+                    f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
+                    f"エラー詳細: {e}\n\n"
+                    "考えられる原因:\n"
+                    f"・{app_name}がインストールされていない\n"
+                    f"・{app_name}アプリケーションが他のプロセスで使用されている\n"
+                    "・ファイルが破損している\n"
+                    "・ファイルがパスワードで保護されている\n\n"
+                    "解決方法:\n"
+                    f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
+                    f"・{app_name}アプリケーションをすべて閉じてから再試行してください\n"
+                    "・ファイルが正常に開けるか確認してください\n"
+                    "・ファイルがパスワード保護されていないか確認してください",
+                )
             return None, app
         finally:
             if doc:
@@ -1318,31 +1376,34 @@ class AppWorker(QRunnable):
             # app_instanceが提供されている場合は終了しない（再利用のため）
             # 提供されていない場合は終了する（後でQuitを呼ぶ必要がある）
 
-    def _convert_word_to_pdf(self, path, app_instance=None):
+    def _convert_word_to_pdf(self, path, app_instance=None, suppress_errors=False):
         result, app = self._convert_office_to_pdf(
             path,
             "Word",
             save_as_format=WORD_SAVE_AS_PDF_FORMAT,
             app_instance=app_instance,
+            suppress_errors=suppress_errors,
         )
         return result, app
 
-    def _convert_excel_to_pdf(self, path, app_instance=None):
+    def _convert_excel_to_pdf(self, path, app_instance=None, suppress_errors=False):
         result, app = self._convert_office_to_pdf(
             path,
             "Excel",
             save_as_format=None,
             export_format_type=EXCEL_EXPORT_PDF_TYPE,
             app_instance=app_instance,
+            suppress_errors=suppress_errors,
         )
         return result, app
 
-    def _convert_powerpoint_to_pdf(self, path, app_instance=None):
+    def _convert_powerpoint_to_pdf(self, path, app_instance=None, suppress_errors=False):
         result, app = self._convert_office_to_pdf(
             path,
             "PowerPoint",
             save_as_format=POWERPOINT_SAVE_AS_PDF_FORMAT,
             app_instance=app_instance,
+            suppress_errors=suppress_errors,
         )
         return result, app
 
@@ -2416,10 +2477,15 @@ class OfficePDFBinderApp(QMainWindow):
     # IPC で受信したファイルパスをメインスレッド側に伝えるシグナル
     ipc_files_received = Signal(list)
 
-    def __init__(self):
+    def __init__(self, initial_geometry=None, initially_maximized=False):
         super().__init__()
         self.setWindowTitle("Office PDF Binder")
-        self.setGeometry(100, 100, 900, 800)
+        self.setWindowIcon(_get_app_icon())
+        self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+        if initial_geometry is None:
+            initial_geometry = _default_window_geometry()
+        self.setGeometry(initial_geometry)
+        self._restore_maximized = initially_maximized
         self.threadpool = QThreadPool()
         self.current_worker = None
         self.bookmarks = []
@@ -2471,9 +2537,9 @@ class OfficePDFBinderApp(QMainWindow):
 
         # ユーザーのAppDataフォルダ内に設定ファイルを保存します
         # これにより、ユーザーごとの設定が保持され、アクセス権の問題も回避できます
-        self.settings_dir = os.path.join(os.environ["APPDATA"], "OfficePDFBinder")
+        self.settings_dir = os.path.dirname(_get_settings_file_path())
         os.makedirs(self.settings_dir, exist_ok=True)
-        self.settings_file = os.path.join(self.settings_dir, "settings.ini")
+        self.settings_file = _get_settings_file_path()
 
         self.config = configparser.ConfigParser()
         self.last_used_path = ""  # 最後に使用したパスを保持する変数
@@ -2493,6 +2559,9 @@ class OfficePDFBinderApp(QMainWindow):
         # 初期ズームレベルの状態を設定
         self._apply_zoom()
         self._record_history_change(initial=True)
+
+        if self._restore_maximized:
+            self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
 
     def _load_settings(self):
         """設定ファイルから設定を読み込みます。"""
@@ -2528,6 +2597,8 @@ class OfficePDFBinderApp(QMainWindow):
                 self.config.add_section("PageNumbers")
             if not self.config.has_section("HeaderFooter"):
                 self.config.add_section("HeaderFooter")
+            if not self.config.has_section("Window"):
+                self.config.add_section("Window")
 
             # 'last_used'というキーに、現在のパスを設定
             self.config.set("Paths", "last_used", self.last_used_path)
@@ -2537,6 +2608,13 @@ class OfficePDFBinderApp(QMainWindow):
             self.config.set(
                 "Bookmarks", "show_on_open", str(self.show_bookmarks_on_open)
             )
+            window_rect = self.normalGeometry() if self.isMaximized() else self.geometry()
+            window_rect = _fit_rect_to_available_geometry(window_rect)
+            self.config.set("Window", "x", str(window_rect.x()))
+            self.config.set("Window", "y", str(window_rect.y()))
+            self.config.set("Window", "width", str(window_rect.width()))
+            self.config.set("Window", "height", str(window_rect.height()))
+            self.config.set("Window", "maximized", str(self.isMaximized()))
             # ページ番号設定を保存
             self.config.set(
                 "PageNumbers", "enabled", str(self.page_number_settings["enabled"])
@@ -2926,7 +3004,10 @@ class OfficePDFBinderApp(QMainWindow):
 
     def create_toolbar(self):
         toolbar = QToolBar("メインツールバー")
-        toolbar.setIconSize(QSize(24, 24))
+        toolbar.setIconSize(QSize(22, 22))
+        toolbar.setMovable(False)
+        toolbar.setFloatable(False)
+        toolbar.setAllowedAreas(Qt.ToolBarArea.TopToolBarArea)
 
         toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
 
@@ -3700,13 +3781,19 @@ class OfficePDFBinderApp(QMainWindow):
                     f"PDF Error\nP{item_data.get('page_num', 0)+1}", "#e74c3c", size
                 )
         elif item_data["type"] == "word":
-            return self._create_dummy_thumbnail("[Word]", "#3498db", size)
+            return self._create_file_type_thumbnail(
+                "W", "Word", "#185ABD", size, "document"
+            )
         elif item_data["type"] == "excel":
-            return self._create_dummy_thumbnail("[Excel]", "#2ecc71", size)
+            return self._create_file_type_thumbnail(
+                "X", "Excel", "#107C41", size, "spreadsheet"
+            )
         elif item_data["type"] == "powerpoint":
-            return self._create_dummy_thumbnail("[PPT]", "#e67e22", size)
+            return self._create_file_type_thumbnail(
+                "P", "PowerPoint", "#C43E1C", size, "presentation"
+            )
         else:
-            return self._create_dummy_thumbnail("[File]", "#7f8c8d", size)
+            return self._create_file_type_thumbnail("F", "File", "#6B7280", size)
 
     def _thumbnail_cache_key(self, item_data):
         return (
@@ -3742,6 +3829,182 @@ class OfficePDFBinderApp(QMainWindow):
         return QPixmap.fromImage(
             QImage(img.tobytes(), img.width, img.height, QImage.Format_RGBA8888)
         )
+
+    def _create_file_type_thumbnail(
+        self, badge_text, label, accent_color, size, content_type="document"
+    ):
+        """Office系ファイル用の自前サムネイルを描画する。"""
+        width = size.width()
+        height = size.height()
+        img = Image.new("RGBA", (width, height), (45, 52, 64, 255))
+        draw = ImageDraw.Draw(img)
+
+        try:
+            badge_font = ImageFont.truetype("arialbd.ttf", max(34, width // 3))
+        except IOError:
+            badge_font = ImageFont.load_default()
+
+        margin = max(4, width // 32)
+        card_left = margin
+        card_top = margin
+        card_right = width - margin
+        card_bottom = height - margin
+        accent = accent_color
+        try:
+            accent_rgb = tuple(
+                int(accent_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)
+            )
+        except Exception:
+            accent_rgb = (107, 114, 128)
+        accent_soft = tuple(int(248 * 0.82 + value * 0.18) for value in accent_rgb)
+        accent_line = accent_rgb
+
+        shadow_offset = max(3, width // 36)
+        draw.rounded_rectangle(
+            (
+                card_left + shadow_offset,
+                card_top + shadow_offset,
+                card_right + shadow_offset // 2,
+                card_bottom + shadow_offset,
+            ),
+            radius=max(5, width // 24),
+            fill=(15, 23, 42, 60),
+        )
+        draw.rounded_rectangle(
+            (card_left, card_top, card_right, card_bottom),
+            radius=max(5, width // 24),
+            fill=(*accent_soft, 255),
+            outline=(*accent_line, 255),
+            width=1,
+        )
+        content_left = card_left + max(12, width // 12)
+        content_top = card_top + max(18, height // 9)
+        content_right = card_right - max(10, width // 14)
+        content_bottom = card_bottom - max(14, height // 10)
+        if content_type == "spreadsheet":
+            self._draw_spreadsheet_thumbnail_content(
+                draw,
+                content_left,
+                content_top,
+                content_right,
+                content_bottom,
+                accent,
+            )
+        elif content_type == "presentation":
+            self._draw_presentation_thumbnail_content(
+                draw,
+                content_left,
+                content_top,
+                content_right,
+                content_bottom,
+                accent,
+            )
+        else:
+            self._draw_document_thumbnail_content(
+                draw,
+                content_left,
+                content_top,
+                content_right,
+                content_bottom,
+                accent_line,
+            )
+
+        icon_size = min(width, height) // 3 + min(width, height) // 10
+        icon_left = card_left + max(6, width // 26)
+        icon_top = card_top + max(6, height // 30)
+        draw.rounded_rectangle(
+            (
+                icon_left + shadow_offset,
+                icon_top + shadow_offset,
+                icon_left + icon_size + shadow_offset,
+                icon_top + icon_size + shadow_offset,
+            ),
+            radius=max(5, icon_size // 10),
+            fill=(15, 23, 42, 70),
+        )
+        draw.rounded_rectangle(
+            (
+                icon_left,
+                icon_top,
+                icon_left + icon_size,
+                icon_top + icon_size,
+            ),
+            radius=max(5, icon_size // 10),
+            fill=accent,
+        )
+        badge_bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
+        badge_width = badge_bbox[2] - badge_bbox[0]
+        badge_height = badge_bbox[3] - badge_bbox[1]
+        draw.text(
+            (
+                icon_left + (icon_size - badge_width) / 2 - badge_bbox[0],
+                icon_top + (icon_size - badge_height) / 2 - badge_bbox[1] - 1,
+            ),
+            badge_text,
+            fill=(255, 255, 255, 255),
+            font=badge_font,
+        )
+
+        return QPixmap.fromImage(
+            QImage(img.tobytes(), img.width, img.height, QImage.Format_RGBA8888)
+        )
+
+    def _draw_document_thumbnail_content(self, draw, left, top, right, bottom, accent):
+        line_color = (*accent, 255)
+        line_height = max(3, (bottom - top) // 18)
+        line_gap = max(8, (bottom - top) // 7)
+        y = top
+        while y + line_height <= bottom:
+            draw.rounded_rectangle(
+                (left, y, right, y + line_height),
+                radius=2,
+                fill=line_color,
+            )
+            y += line_gap
+
+    def _draw_spreadsheet_thumbnail_content(self, draw, left, top, right, bottom, accent):
+        try:
+            accent_rgb = tuple(
+                int(accent.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)
+            )
+        except Exception:
+            accent_rgb = (107, 114, 128)
+        accent_line = tuple(int(203 * 0.25 + value * 0.75) for value in accent_rgb)
+        accent_fill = tuple(int(248 * 0.9 + value * 0.1) for value in accent_rgb)
+        rows = 5
+        cols = 4
+        cell_width = max(8, (right - left) // cols)
+        cell_height = max(7, (bottom - top) // rows)
+        table_right = left + cell_width * cols
+        table_bottom = top + cell_height * rows
+
+        draw.rounded_rectangle(
+            (left, top, table_right, table_bottom),
+            radius=4,
+            fill=(*accent_fill, 255),
+            outline=(*accent_line, 255),
+            width=1,
+        )
+        for col in range(1, cols):
+            x = left + col * cell_width
+            draw.line((x, top, x, table_bottom), fill=(*accent_line, 255), width=2)
+        for row in range(1, rows):
+            y = top + row * cell_height
+            draw.line((left, y, table_right, y), fill=(*accent_line, 255), width=2)
+
+    def _draw_presentation_thumbnail_content(
+        self, draw, left, top, right, bottom, accent
+    ):
+        diameter = min(right - left, bottom - top)
+        if diameter <= 0:
+            return
+        cx = left + (right - left - diameter) // 2
+        cy = top + (bottom - top - diameter) // 2
+        chart_box = (cx, cy, cx + diameter, cy + diameter)
+        draw.ellipse(chart_box, fill=(226, 91, 55, 255))
+        draw.pieslice(chart_box, start=270, end=45, fill=accent)
+        draw.pieslice(chart_box, start=45, end=120, fill=(190, 57, 31, 255))
+        draw.ellipse(chart_box, outline=accent, width=2)
 
     def _update_page_mode_actions_state(self):
         """
@@ -4318,7 +4581,8 @@ class OfficePDFBinderApp(QMainWindow):
 
         if item_data["type"] == "pdf":
             # PDFの場合は、ファイル名とページ番号を2行で表示（ツールチップ用）
-            icon_text = f"{base_filename}\nP. {item_data['page_num'] + 1}"
+            page_num_text = f".P{item_data['page_num'] + 1}"
+            icon_text = f"{base_filename}\n{page_num_text.lstrip('.')}"
         else:
             # PDF以外（Word, Excel, PPT）の場合は、ファイル名の下に空の2行目を作る
             icon_text = f"{base_filename}\n"
@@ -4327,21 +4591,21 @@ class OfficePDFBinderApp(QMainWindow):
         if item_data["type"] == "pdf":
             # PDFの場合は、ファイル名とページ番号を1行で表示
             # 形式: "ファイル名.P1"（半角ドット、P、数字、スペースなし）
-            page_num_text = f".P{item_data['page_num'] + 1}"
             # ファイル名とページ番号を結合
             combined_text = f"{base_filename}{page_num_text}"
             # テキスト表示領域の幅を計算
             font_metrics = self.page_list_widget.fontMetrics()
             current_width = int(THUMBNAIL_WIDTH * self.zoom_level)
-            grid_width = current_width + GRID_ITEM_PADDING_X
-            max_width = grid_width - 10
+            max_width = max(20, current_width - 12)
 
             # 幅が十分にある場合はファイル名とページ番号の両方を表示
             if font_metrics.horizontalAdvance(combined_text) <= max_width:
                 final_text = combined_text
             else:
-                # 幅が足りない場合はファイル名のみを表示
-                final_text = self._elide_text(base_filename)
+                # 幅が足りない場合も、ページ番号 suffix は必ず残す。
+                final_text = self._elide_text_keep_suffix(
+                    base_filename, page_num_text, max_width
+                )
         else:
             # PDF以外の場合は、ファイル名のみ
             final_text = self._elide_text(base_filename)
@@ -4352,6 +4616,28 @@ class OfficePDFBinderApp(QMainWindow):
 
         # QListWidgetのIconModeでは、改行が表示されない可能性があるため、
         # フォントサイズを小さくするか、テキスト表示領域を調整する必要がある可能性がある
+
+    def _elide_text_keep_suffix(self, text, suffix, max_width):
+        """末尾の suffix を残したまま、先頭側のテキストだけ省略する。"""
+        font_metrics = self.page_list_widget.fontMetrics()
+        suffix_width = font_metrics.horizontalAdvance(suffix)
+        filename_width = max(0, max_width - suffix_width)
+
+        if filename_width <= 0:
+            return suffix
+
+        filename_text = font_metrics.elidedText(text, Qt.ElideRight, filename_width)
+        final_text = f"{filename_text}{suffix}"
+
+        while (
+            filename_width > 0
+            and font_metrics.horizontalAdvance(final_text) > max_width
+        ):
+            filename_width -= 4
+            filename_text = font_metrics.elidedText(text, Qt.ElideRight, filename_width)
+            final_text = f"{filename_text}{suffix}"
+
+        return final_text
 
     def _elide_text(self, text):
         """
@@ -4418,9 +4704,9 @@ class OfficePDFBinderApp(QMainWindow):
                     "page_number_position"
                 ] = page_number_position
 
-        # ページ番号のフォーマットと開始番号を設定に追加
-        header_footer_settings["page_number_format"] = page_number_format
-        header_footer_settings["page_number_start"] = page_number_start
+            # ページ番号のフォーマットと開始番号を設定に追加
+            header_footer_settings["page_number_format"] = page_number_format
+            header_footer_settings["page_number_start"] = page_number_start
 
         output_path, _ = QFileDialog.getSaveFileName(
             self, "名前を付けて保存", self.last_used_path, "PDF Files (*.pdf)"
@@ -4884,14 +5170,14 @@ class OfficePDFBinderApp(QMainWindow):
         """アプリ情報とライセンス関連ファイルへのアクセスを提供するカスタムダイアログ"""
 
         dialog = QDialog(self)
-        dialog.setWindowTitle("アプリ情報 - Office PDF Binder")
+        dialog.setWindowTitle(f"アプリ情報 - {APP_NAME}")
         dialog.setMinimumWidth(450)
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(5)
 
-        title_label = QLabel("Office PDF Binder")
+        title_label = QLabel(APP_NAME)
         title_label.setAlignment(Qt.AlignCenter)
         font = title_label.font()
         font.setPointSize(14)
@@ -4900,7 +5186,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         layout.addWidget(title_label)
 
-        version_label = QLabel("Version: 1.0.0")
+        version_label = QLabel(f"Version: {APP_VERSION}")
         version_label.setAlignment(Qt.AlignRight)
 
         layout.addWidget(version_label)
@@ -5395,8 +5681,13 @@ _SINGLE_INSTANCE_SERVER_NAME = "OfficePDFBinder_SingleInstance"
 # デバッグログ用（ファイルにも出力）
 _DEBUG_LOG_PATH = os.path.join(os.path.expanduser("~"), "OfficePDFBinder_debug.log")
 
-# デフォルトでは配布ビルドでログを書かない（デバッグ時のみ True）
-_ENABLE_DEBUG_LOG = False
+# デフォルトでは配布ビルドでログを書かない。必要な場合は環境変数で有効化する。
+_ENABLE_DEBUG_LOG = os.environ.get("OFFICEPDFBINDER_DEBUG_LOG", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 
 def _debug_log(msg):
@@ -5412,6 +5703,110 @@ def _debug_log(msg):
         pass  # ログファイル書き込み失敗は無視
 
 
+def _startup_log(msg):
+    """起動時の処理時間を測るためのデバッグログ。"""
+    elapsed = time.perf_counter() - _STARTUP_TIME
+    _debug_log(f"[STARTUP +{elapsed:.3f}s] {msg}")
+
+
+def _get_app_icon():
+    """アプリのウィンドウアイコンを取得する。"""
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    icon_path = os.path.join(base_dir, APP_ICON_FILENAME)
+    if os.path.exists(icon_path):
+        return QIcon(icon_path)
+    return QIcon()
+
+
+def _get_settings_file_path():
+    """ユーザー設定ファイルのパスを返す。"""
+    return os.path.join(os.environ["APPDATA"], "OfficePDFBinder", "settings.ini")
+
+
+def _available_geometry_for_rect(rect=None):
+    """指定位置に対応する画面の使用可能領域を取得する。"""
+    screen = None
+    app = QApplication.instance()
+    if app is not None and rect is not None:
+        center = rect.center()
+        screen = app.screenAt(center)
+    if screen is None:
+        screen = QApplication.primaryScreen()
+    if screen is not None:
+        return screen.availableGeometry()
+    return QRect(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
+
+
+def _fit_rect_to_available_geometry(rect):
+    """ウィンドウ矩形を現在利用できる画面領域内に収める。"""
+    available = _available_geometry_for_rect(rect)
+    max_width = max(MIN_WINDOW_WIDTH, available.width() - WINDOW_SCREEN_MARGIN)
+    max_height = max(MIN_WINDOW_HEIGHT, available.height() - WINDOW_SCREEN_MARGIN)
+    width = min(max(rect.width(), MIN_WINDOW_WIDTH), max_width)
+    height = min(max(rect.height(), MIN_WINDOW_HEIGHT), max_height)
+
+    left_limit = available.left()
+    top_limit = available.top()
+    right_limit = available.right() - width + 1
+    bottom_limit = available.bottom() - height + 1
+
+    x = min(max(rect.x(), left_limit), max(left_limit, right_limit))
+    y = min(max(rect.y(), top_limit), max(top_limit, bottom_limit))
+    return QRect(x, y, width, height)
+
+
+def _default_window_geometry_for_available(available):
+    """指定された画面領域に対する既定のウィンドウ位置とサイズを返す。"""
+    width = min(INITIAL_WINDOW_WIDTH, max(MIN_WINDOW_WIDTH, available.width() - 80))
+    height = min(INITIAL_WINDOW_HEIGHT, max(MIN_WINDOW_HEIGHT, available.height() - 80))
+    x = available.left() + min(INITIAL_WINDOW_X, max(0, (available.width() - width) // 2))
+    y = available.top() + min(INITIAL_WINDOW_Y, max(0, (available.height() - height) // 3))
+    return _fit_rect_to_available_geometry(QRect(x, y, width, height))
+
+
+def _default_window_geometry():
+    """初回起動時のウィンドウ位置とサイズを画面に合わせて決める。"""
+    available = _available_geometry_for_rect()
+    return _default_window_geometry_for_available(available)
+
+
+def _restore_window_geometry(rect):
+    """保存済み位置を復元する。収まらない場合は既定位置寄りに戻す。"""
+    available = _available_geometry_for_rect(rect)
+    fitted = _fit_rect_to_available_geometry(rect)
+    if fitted == rect:
+        return fitted
+    default_rect = _default_window_geometry_for_available(available)
+    return QRect(default_rect.x(), default_rect.y(), fitted.width(), fitted.height())
+
+
+def _load_startup_window_geometry():
+    """起動直後に使うウィンドウ位置を設定ファイルから取得する。"""
+    settings_file = _get_settings_file_path()
+    if not os.path.exists(settings_file):
+        return _default_window_geometry(), False
+
+    config = configparser.ConfigParser()
+    try:
+        config.read(settings_file, encoding="utf-8")
+        if not config.has_section("Window"):
+            return _default_window_geometry(), False
+        rect = QRect(
+            config.getint("Window", "x", fallback=INITIAL_WINDOW_X),
+            config.getint("Window", "y", fallback=INITIAL_WINDOW_Y),
+            config.getint("Window", "width", fallback=INITIAL_WINDOW_WIDTH),
+            config.getint("Window", "height", fallback=INITIAL_WINDOW_HEIGHT),
+        )
+        maximized = config.getboolean("Window", "maximized", fallback=False)
+        return _restore_window_geometry(rect), maximized
+    except Exception:
+        return _default_window_geometry(), False
+
+
 def _send_files_to_running_instance(file_paths):
     """既に起動中のインスタンスにファイルパスを送信する。
 
@@ -5421,6 +5816,7 @@ def _send_files_to_running_instance(file_paths):
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
+        _startup_log("child QApplication created")
 
     local_socket = QLocalSocket()
 
@@ -5429,7 +5825,9 @@ def _send_files_to_running_instance(file_paths):
         local_socket.connectToServer(_SINGLE_INSTANCE_SERVER_NAME)
         if local_socket.waitForConnected(300):  # 300ms待機
             local_socket.disconnectFromServer()
+            _startup_log("existing instance detected without file arguments")
             return True
+        _startup_log("no existing instance detected without file arguments")
         return False
 
     _debug_log(
@@ -5441,6 +5839,7 @@ def _send_files_to_running_instance(file_paths):
         _debug_log(
             f"[DEBUG] _send_files_to_running_instance: 接続失敗 ({local_socket.errorString()})"
         )
+        _startup_log("child failed to connect to existing instance")
         return False
 
     try:
@@ -5450,6 +5849,7 @@ def _send_files_to_running_instance(file_paths):
         local_socket.flush()
         local_socket.waitForBytesWritten(1000)  # 1秒待機
         _debug_log("[DEBUG] _send_files_to_running_instance: 送信成功、終了します")
+        _startup_log("child sent file paths to existing instance")
         return True
     except Exception as e:
         _debug_log(f"[DEBUG] _send_files_to_running_instance: 送信エラー ({e})")
@@ -5520,6 +5920,9 @@ if __name__ == "__main__":
     process_id = os_module.getpid()
     # コマンドライン引数からファイルパスを取得（最初の引数はスクリプト名なので除外）
     initial_file_paths = sys.argv[1:] if len(sys.argv) > 1 else []
+    _startup_log(
+        f"process start [PID:{process_id}], file_args={len(initial_file_paths)}"
+    )
     _debug_log(
         f"[DEBUG] main: 起動 [PID:{process_id}]、引数={len(initial_file_paths)}個のファイル: {initial_file_paths}"
     )
@@ -5555,14 +5958,17 @@ if __name__ == "__main__":
                 ERROR_ALREADY_EXISTS = 183  # ERROR_ALREADY_EXISTS
                 if last_error == ERROR_ALREADY_EXISTS:
                     is_main_instance = False
+                    _startup_log("mutex checked: child instance")
                     _debug_log(
                         f"[DEBUG] main: [PID:{process_id}] 既にメインインスタンスが存在するため、子インスタンスとして動作します"
                     )
                 else:
+                    _startup_log("mutex checked: main instance")
                     _debug_log(
                         f"[DEBUG] main: [PID:{process_id}] Named mutex を取得しました（メインインスタンス）"
                     )
         except Exception as e:
+            _startup_log("mutex check failed; continue as main instance")
             _debug_log(
                 f"[DEBUG] main: Named mutex 初期化に失敗しました（メインとして続行）: {e}"
             )
@@ -5577,33 +5983,44 @@ if __name__ == "__main__":
         if initial_file_paths:
             # 既存インスタンスへ自分のファイルパスを送信して終了
             for retry_count in range(5):
+                _startup_log(f"child send attempt {retry_count + 1}")
                 if _send_files_to_running_instance(initial_file_paths):
                     _debug_log(
                         f"[DEBUG] main: [PID:{process_id}] 既存インスタンスにファイルを送信して終了します"
                     )
+                    _startup_log("child exit after successful send")
                     sys.exit(0)
                 time.sleep(0.3)
 
             _debug_log(
                 f"[DEBUG] main: [PID:{process_id}] 既存インスタンスへの送信に失敗したため、何もせず終了します"
             )
+            _startup_log("child exit after send failure")
         else:
             _debug_log(
                 f"[DEBUG] main: [PID:{process_id}] 子インスタンス（引数なし）のため、何もせず終了します"
             )
+            _startup_log("child exit without file arguments")
         sys.exit(0)
 
     # ここから先はメインインスタンスのみ
 
     # --- アプリケーション起動 ---
     app = QApplication(sys.argv)
-    window = OfficePDFBinderApp()
+    app.setApplicationName("Office PDF Binder")
+    app.setWindowIcon(_get_app_icon())
+    _startup_log("main QApplication created")
+    startup_geometry, startup_maximized = _load_startup_window_geometry()
+
+    window = OfficePDFBinderApp(startup_geometry, startup_maximized)
+    _startup_log("main window created")
 
     # IPC 用ローカルサーバーを開始（ファイル追加要求を受け付ける）
     local_server = QLocalServer()
     try:
         # 既存のサーバーが残っている可能性があるので、削除を試みる
         if local_server.listen(_SINGLE_INSTANCE_SERVER_NAME):
+            _startup_log("local server listen started")
             _debug_log(
                 f"[DEBUG] main: [PID:{process_id}] ローカルサーバー開始（{_SINGLE_INSTANCE_SERVER_NAME}）"
             )
@@ -5615,6 +6032,7 @@ if __name__ == "__main__":
             # 既存のサーバーが残っている場合は削除して再試行
             QLocalServer.removeServer(_SINGLE_INSTANCE_SERVER_NAME)
             if local_server.listen(_SINGLE_INSTANCE_SERVER_NAME):
+                _startup_log("local server listen started after removeServer")
                 _debug_log(
                     f"[DEBUG] main: [PID:{process_id}] ローカルサーバー開始（再試行成功: {_SINGLE_INSTANCE_SERVER_NAME}）"
                 )
@@ -5622,22 +6040,27 @@ if __name__ == "__main__":
                     lambda: _handle_new_connection(local_server, window)
                 )
             else:
+                _startup_log("local server listen failed")
                 _debug_log(
                     f"[DEBUG] main: [PID:{process_id}] ローカルサーバーの起動に失敗しました（IPCは無効）: {local_server.errorString()}"
                 )
     except Exception as e:
+        _startup_log("local server setup failed")
         _debug_log(
             f"[DEBUG] main: [PID:{process_id}] ローカルサーバーの起動に失敗しました（IPCは無効）: {e}"
         )
 
     window.show()
+    _startup_log("main window shown")
 
     # 起動時にファイルが指定されていた場合は、自分自身でも読み込む
     if initial_file_paths:
         _debug_log(
             f"[DEBUG] main: [PID:{process_id}] メインインスタンスとして起動時のファイルを読み込みます: {initial_file_paths}"
         )
+        _startup_log("initial file loading scheduled")
         # GUI 初期化待ちのために少し遅延させる
         QTimer.singleShot(300, lambda: window._add_files_from_paths(initial_file_paths))
 
+    _startup_log("event loop start")
     sys.exit(app.exec())
