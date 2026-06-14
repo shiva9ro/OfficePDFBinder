@@ -1,0 +1,115 @@
+name: 不具合報告
+description: Office PDF Binder の不具合を報告する
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        不具合報告ありがとうございます。
+
+        個人情報、業務情報、内部資料、非公開ファイルは添付しないでください。
+        再現に必要な場合は、公開可能なサンプルファイルやダミーファイルを使ってください。
+
+  - type: input
+    id: app_version
+    attributes:
+      label: アプリのバージョン
+      description: 例: 1.1.0
+      placeholder: "1.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: 実行方法
+      options:
+        - インストーラー版
+        - Pythonソースから実行
+        - その他
+    validations:
+      required: true
+
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windowsのバージョン
+      description: 例: Windows 11 24H2 / Windows 10 22H2
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: office_installed
+    attributes:
+      label: Microsoft Officeの有無
+      description: Word / Excel / PowerPoint 変換に関係する場合は必ず選択してください。
+      options:
+        - インストール済み
+        - 未インストール
+        - 不明
+        - この不具合には関係しない
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 不具合の概要
+      description: 何が起きたかを簡潔に書いてください。
+      placeholder: "例: PDF保存時にエラーダイアログが表示される"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: できるだけ具体的に書いてください。
+      placeholder: |
+        1. アプリを起動する
+        2. ○○ファイルを追加する
+        3. 名前を付けて保存を実行する
+        4. エラーが表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した動作
+      placeholder: "例: エラーなくPDFが保存される"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の動作
+      placeholder: "例: ○○というエラーが表示される"
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: 使用したファイルの種類
+      description: ファイル名そのものではなく、種類やページ数などを書いてください。非公開ファイルは添付しないでください。
+      placeholder: |
+        例:
+        - PDF 3ファイル、合計20ページ
+        - Word 1ファイル
+        - Excel 1ファイル、複数シートあり
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: スクリーンショット
+      description: 可能であれば、個人情報や業務情報を含まない画面を添付してください。
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 補足
+      description: ほかに伝えておきたいことがあれば書いてください。
