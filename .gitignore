@@ -39,7 +39,11 @@ AGENTS.md
 AGENTS.local.md
 
 # Local test and sample artifacts
-tests/
+tests/artifacts/
+# Existing local/manual diagnostic scripts (not part of automated pytest suite)
+tests/test_bookmark_debug.py
+tests/test_dd.bat
+tests/test_ipc.ps1
 samples/
 docs/presentation/
 docs/OfficePDFBinder_Main.pdf
