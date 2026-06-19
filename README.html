@@ -294,11 +294,21 @@
 <p>Python パッケージは以下でインストールできます。</p>
 <pre><code class="language-powershell">pip install -r requirements.txt
 </code></pre>
+<p>テスト用パッケージを追加し、pytest を実行するには次を使用します。</p>
+<pre><code class="language-powershell">pip install -r requirements-dev.txt
+python -m pytest
+</code></pre>
+<p>自動テストの内訳と、Office・インストーラーを含む手動確認項目は
+<a href="TESTING.md"><code>TESTING.md</code></a> を参照してください。</p>
 <p>インストーラーを作成するには、次を実行します。</p>
 <pre><code class="language-powershell">.\build_installer.ps1
 </code></pre>
-<p>ビルドが完了すると、インストーラーは <code>Output/</code> に出力されます。</p>
+<p>ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が <code>Output/</code> に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。</p>
 <p><code>build_installer.ps1</code> は、アプリ内マニュアル用の <code>README.html</code> と、AGPL対応のために同梱する <code>source.zip</code> も再生成します。</p>
+<p>制限環境向けポータブル版には、実行ファイルと同じフォルダーに <code>OfficePDFBinder.restricted-portable</code> が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。</p>
+<p>既存の <code>OfficePDFBinder_Main.dist</code> からポータブル版だけ再生成する場合は、次を実行します。</p>
+<pre><code class="language-powershell">.\build_portable.ps1
+</code></pre>
 <p>既存の <code>OfficePDFBinder_Main.dist</code> を使ってインストーラーだけ再生成する場合は、次を実行します。</p>
 <pre><code class="language-powershell">.\build_installer_only.ps1
 </code></pre>

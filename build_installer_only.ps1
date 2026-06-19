@@ -55,6 +55,7 @@ $SourceFiles = @(
     "LICENSE.txt",
     "NOTICE.txt",
     "build_installer.ps1",
+    "build_portable.ps1",
     $SelfScriptName,
     "convert_readme.py",
     "README.md",

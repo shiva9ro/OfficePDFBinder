@@ -225,9 +225,17 @@ python -m pytest
 .\build_installer.ps1
 ```
 
-ビルドが完了すると、インストーラーは `Output/` に出力されます。
+ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が `Output/` に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。
 
 `build_installer.ps1` は、アプリ内マニュアル用の `README.html` と、AGPL対応のために同梱する `source.zip` も再生成します。
+
+制限環境向けポータブル版には、実行ファイルと同じフォルダーに `OfficePDFBinder.restricted-portable` が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。
+
+既存の `OfficePDFBinder_Main.dist` からポータブル版だけ再生成する場合は、次を実行します。
+
+```powershell
+.\build_portable.ps1
+```
 
 既存の `OfficePDFBinder_Main.dist` を使ってインストーラーだけ再生成する場合は、次を実行します。
 
