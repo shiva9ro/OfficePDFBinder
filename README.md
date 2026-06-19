@@ -209,6 +209,16 @@ Python パッケージは以下でインストールできます。
 pip install -r requirements.txt
 ```
 
+テスト用パッケージを追加し、pytest を実行するには次を使用します。
+
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+自動テストの内訳と、Office・インストーラーを含む手動確認項目は
+[`TESTING.md`](TESTING.md) を参照してください。
+
 インストーラーを作成するには、次を実行します。
 
 ```powershell
