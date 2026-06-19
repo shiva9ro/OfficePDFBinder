@@ -13,6 +13,7 @@ $ScriptName = "OfficePDFBinder_Main.py"
 $IssFile = "setup_office_binder.iss"
 $IconFile = "app.ico"
 $SelfScriptName = "build_installer.ps1"
+$PortableScriptName = "build_portable.ps1"
 
 $ProductName = "Office PDF Binder"
 $InternalName = "OfficePDFBinder_Main"
@@ -30,7 +31,7 @@ $AppVersion = $Matches[1]
 $CompanyName = "Takeshi Kashiwagi"
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[1/4] クリーンアップ..."
+Write-Host "[1/5] クリーンアップ..."
 Write-Host "========================================================"
 
 if (Test-Path "Output") { Remove-Item -Recurse -Force "Output" }
@@ -48,7 +49,7 @@ if (Test-Path "$InternalName.dist") {
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[2.5/4] README.md → README.html 変換..."
+Write-Host "[2/5] README.md → README.html 変換..."
 Write-Host "========================================================"
 
 & $PythonExe "convert_readme.py"
@@ -59,7 +60,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host " - README.html 生成完了" -ForegroundColor Green
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[2/4] source.zip 作成..."
+Write-Host "[3/5] source.zip 作成..."
 Write-Host "========================================================"
 
 $SourceFiles = @(
@@ -70,6 +71,7 @@ $SourceFiles = @(
     "LICENSE.txt",
     "NOTICE.txt",
     $SelfScriptName,
+    $PortableScriptName,
     "convert_readme.py",
     "README.md",
     "README.html",
@@ -97,7 +99,7 @@ Write-Host " - バックアップ作成: $BackupPath" -ForegroundColor Green
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[3/4] Nuitka ビルド (Ver $AppVersion)..."
+Write-Host "[4/5] Nuitka ビルド (Ver $AppVersion)..."
 Write-Host "========================================================"
 
 $NuitkaArgs = @(
@@ -137,7 +139,18 @@ Write-Host " - ビルド完了" -ForegroundColor Green
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[4/4] インストーラー作成..."
+Write-Host "[4.5/5] 制限ポータブル版作成..."
+Write-Host "========================================================"
+
+& ".\$PortableScriptName"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "`n[ERROR] 制限ポータブル版の作成に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+
+Write-Host "`n========================================================" -ForegroundColor Cyan
+Write-Host "[5/5] インストーラー作成..."
 Write-Host "========================================================"
 
 $IsccExe = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"

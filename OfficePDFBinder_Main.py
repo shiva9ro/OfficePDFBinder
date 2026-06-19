@@ -86,8 +86,42 @@ MIN_WINDOW_WIDTH = 760
 MIN_WINDOW_HEIGHT = 560
 WINDOW_SCREEN_MARGIN = 40
 APP_ICON_FILENAME = "app.ico"
+RESTRICTED_PORTABLE_MARKER_FILENAME = "OfficePDFBinder.restricted-portable"
 
 from version import APP_NAME, APP_VERSION
+
+
+def _get_runtime_dir():
+    """実行ファイル、または開発中のスクリプトが置かれたフォルダーを返す。"""
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _is_restricted_portable_mode():
+    """実行ファイルの隣に専用マーカーがある場合だけ制限モードにする。"""
+    marker_path = os.path.join(
+        _get_runtime_dir(), RESTRICTED_PORTABLE_MARKER_FILENAME
+    )
+    return os.path.isfile(marker_path)
+
+
+def _create_office_temp_pdf_path(office_path):
+    """実行モードに応じた場所へ、重複しないOffice変換用PDFを確保する。"""
+    temp_dir = (
+        os.path.dirname(os.path.abspath(office_path))
+        if _is_restricted_portable_mode()
+        else None
+    )
+    handle = tempfile.NamedTemporaryFile(
+        suffix=".pdf",
+        prefix=f"{os.path.splitext(os.path.basename(office_path))[0]}_",
+        dir=temp_dir,
+        delete=False,
+    )
+    path = handle.name
+    handle.close()
+    return path
 
 # --- Optional libraries ---
 try:
@@ -1310,12 +1344,9 @@ class AppWorker(QRunnable):
                 return None, None
 
         doc = None
+        temp_pdf_path = None
         try:
-            temp_pdf_path = tempfile.NamedTemporaryFile(
-                suffix=".pdf",
-                prefix=f"{os.path.splitext(os.path.basename(office_path))[0]}_",
-                delete=False,
-            ).name
+            temp_pdf_path = _create_office_temp_pdf_path(office_path)
 
             open_method = getattr(
                 app,
@@ -1339,6 +1370,11 @@ class AppWorker(QRunnable):
             # アプリケーションインスタンスを返す（再利用のため）
             return temp_pdf_path, app
         except Exception as e:
+            if temp_pdf_path and os.path.exists(temp_pdf_path):
+                try:
+                    os.remove(temp_pdf_path)
+                except OSError:
+                    pass
             if not suppress_errors:
                 self.signals.error.emit(
                     f"{app_name}ファイルの変換に失敗しました",
@@ -2479,7 +2515,10 @@ class OfficePDFBinderApp(QMainWindow):
 
     def __init__(self, initial_geometry=None, initially_maximized=False):
         super().__init__()
-        self.setWindowTitle("Office PDF Binder")
+        window_title = "Office PDF Binder"
+        if _is_restricted_portable_mode():
+            window_title += "（ポータブル版）"
+        self.setWindowTitle(window_title)
         self.setWindowIcon(_get_app_icon())
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         if initial_geometry is None:
@@ -2502,10 +2541,7 @@ class OfficePDFBinderApp(QMainWindow):
         }
         # ヘッダー・フッター設定のデフォルト値
         self.header_footer_settings = None
-        if getattr(sys, "frozen", False):
-            self.install_dir = os.path.dirname(sys.executable)
-        else:
-            self.install_dir = os.path.dirname(os.path.abspath(__file__))
+        self.install_dir = _get_runtime_dir()
         self.user_manual_path = os.path.join(self.install_dir, "README.html")
         # IPC シグナルとハンドラを接続
         self.ipc_files_received.connect(self._add_files_from_paths)
@@ -2535,11 +2571,14 @@ class OfficePDFBinderApp(QMainWindow):
         self._ipc_batch_timer.setSingleShot(True)
         self._ipc_batch_timer.timeout.connect(self._flush_ipc_pending_files)
 
-        # ユーザーのAppDataフォルダ内に設定ファイルを保存します
-        # これにより、ユーザーごとの設定が保持され、アクセス権の問題も回避できます
-        self.settings_dir = os.path.dirname(_get_settings_file_path())
-        os.makedirs(self.settings_dir, exist_ok=True)
-        self.settings_file = _get_settings_file_path()
+        # 通常版だけユーザーのAppDataフォルダに設定を保存する。
+        # 制限ポータブル版は、起動した端末のC/Dドライブへ設定を書き込まない。
+        self.settings_file = None
+        self.settings_dir = None
+        if not _is_restricted_portable_mode():
+            self.settings_file = _get_settings_file_path()
+            self.settings_dir = os.path.dirname(self.settings_file)
+            os.makedirs(self.settings_dir, exist_ok=True)
 
         self.config = configparser.ConfigParser()
         self.last_used_path = ""  # 最後に使用したパスを保持する変数
@@ -2565,6 +2604,8 @@ class OfficePDFBinderApp(QMainWindow):
 
     def _load_settings(self):
         """設定ファイルから設定を読み込みます。"""
+        if self.settings_file is None:
+            return
         try:
             if os.path.exists(self.settings_file):
                 self.config.read(self.settings_file, encoding="utf-8")
@@ -2587,6 +2628,8 @@ class OfficePDFBinderApp(QMainWindow):
 
     def _save_settings(self):
         """現在の設定を設定ファイルに保存します。"""
+        if self.settings_file is None:
+            return
         try:
             # 'Paths'というセクションがなければ作成
             if not self.config.has_section("Paths"):
@@ -5676,7 +5719,13 @@ class OfficePDFBinderApp(QMainWindow):
 
 
 # --- 単一インスタンス制御用の簡易サーバ ---
-_SINGLE_INSTANCE_SERVER_NAME = "OfficePDFBinder_SingleInstance"
+_INSTANCE_MODE_SUFFIX = (
+    "RestrictedPortable" if _is_restricted_portable_mode() else "Installed"
+)
+_SINGLE_INSTANCE_SERVER_NAME = f"OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
+_SINGLE_INSTANCE_MUTEX_NAME = (
+    f"Global\\OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
+)
 
 # デバッグログ用（ファイルにも出力）
 _DEBUG_LOG_PATH = os.path.join(os.path.expanduser("~"), "OfficePDFBinder_debug.log")
@@ -5696,6 +5745,8 @@ def _debug_log(msg):
         return
     log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
     print(log_msg)
+    if _is_restricted_portable_mode():
+        return
     try:
         with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(log_msg + "\n")
@@ -5711,12 +5762,7 @@ def _startup_log(msg):
 
 def _get_app_icon():
     """アプリのウィンドウアイコンを取得する。"""
-    if getattr(sys, "frozen", False):
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-
-    icon_path = os.path.join(base_dir, APP_ICON_FILENAME)
+    icon_path = os.path.join(_get_runtime_dir(), APP_ICON_FILENAME)
     if os.path.exists(icon_path):
         return QIcon(icon_path)
     return QIcon()
@@ -5786,6 +5832,8 @@ def _restore_window_geometry(rect):
 
 def _load_startup_window_geometry():
     """起動直後に使うウィンドウ位置を設定ファイルから取得する。"""
+    if _is_restricted_portable_mode():
+        return _default_window_geometry(), False
     settings_file = _get_settings_file_path()
     if not os.path.exists(settings_file):
         return _default_window_geometry(), False
@@ -5946,8 +5994,7 @@ if __name__ == "__main__":
             )
             CreateMutexW.restype = wintypes.HANDLE
 
-            mutex_name = "Global\\OfficePDFBinder_SingleInstance"
-            mutex_handle = CreateMutexW(None, False, mutex_name)
+            mutex_handle = CreateMutexW(None, False, _SINGLE_INSTANCE_MUTEX_NAME)
             last_error = ctypes.get_last_error()
 
             if not mutex_handle:

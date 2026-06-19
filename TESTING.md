@@ -94,6 +94,10 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] 旧バージョン検出時の案内が正しい
 - [ ] アンインストール後にアプリ本体と右クリックメニューが残らない
 - [ ] SmartScreen警告を含む導入手順がREADMEと一致する
+- [ ] ポータブル版のフォルダーとZIPに`OfficePDFBinder.restricted-portable`が含まれる
+- [ ] ポータブル版が「Office PDF Binder（ポータブル版）」と表示され、終了後もAppDataに設定を作らない
+- [ ] ポータブル版のOffice変換用一時PDFが元ファイルと同じ場所に作られ、処理後に削除される
+- [ ] マーカーなしの通常版は従来どおり設定を保存・復元できる
 
 ### 3.5 性能・大容量
 
