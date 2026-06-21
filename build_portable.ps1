@@ -4,13 +4,13 @@ param(
 )
 
 # ========================================================
-#  Office PDF Binder - restricted portable package
+#  Office PDF Binder - portable package
 #  Reuses the same Nuitka dist as the installer build.
 # ========================================================
 
 $ErrorActionPreference = "Stop"
 $VersionFile = "version.py"
-$MarkerFile = "OfficePDFBinder.restricted-portable"
+$MarkerFile = "OfficePDFBinder.portable"
 
 if (-not (Test-Path -LiteralPath $VersionFile -PathType Leaf)) {
     Write-Host "[ERROR] $VersionFile がありません。" -ForegroundColor Red
@@ -71,13 +71,13 @@ if (Test-Path -LiteralPath $ZipPath) {
 }
 
 Copy-Item -LiteralPath $DistDir -Destination $PackageDir -Recurse
-Set-Content -LiteralPath (Join-Path $PackageDir $MarkerFile) -Value "restricted-portable" -Encoding ascii
+Set-Content -LiteralPath (Join-Path $PackageDir $MarkerFile) -Value "portable" -Encoding ascii
 foreach ($File in $RequiredFiles) {
     Copy-Item -LiteralPath $File -Destination $PackageDir -Force
 }
 
 Compress-Archive -LiteralPath $PackageDir -DestinationPath $ZipPath -Force
 
-Write-Host "[SUCCESS] 制限ポータブル版を作成しました。" -ForegroundColor Green
+Write-Host "[SUCCESS] ポータブル版を作成しました。" -ForegroundColor Green
 Write-Host " - フォルダー: $PackageDir"
 Write-Host " - ZIP: $ZipPath"

@@ -112,8 +112,9 @@
 <p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm</code></p>
 <hr />
 <h2>3. ダウンロード</h2>
-<p>GitHub Releases から最新版のインストーラーをダウンロードしてください。</p>
+<p>GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。</p>
 <pre><code class="language-text">OfficePDFBinder_Setup_1.2.0.exe
+OfficePDFBinder_Portable_1.2.0.zip
 </code></pre>
 <p>インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。</p>
 <h3>インストール時の注意</h3>
@@ -295,10 +296,10 @@
 <li>Inno Setup 6</li>
 </ul>
 <p>Python パッケージは以下でインストールできます。</p>
-<pre><code class="language-powershell">pip install -r requirements.txt
+<pre><code class="language-powershell">python -m pip install -r requirements.txt
 </code></pre>
 <p>テスト用パッケージを追加し、pytest を実行するには次を使用します。</p>
-<pre><code class="language-powershell">pip install -r requirements-dev.txt
+<pre><code class="language-powershell">python -m pip install -r requirements-dev.txt
 python -m pytest
 </code></pre>
 <p>自動テストの内訳と、Office・インストーラーを含む手動確認項目は
@@ -313,9 +314,9 @@ python -m pytest
 <pre><code class="language-powershell">.\build.ps1 -Mode Release
 </code></pre>
 <p><code>Fast</code>と<code>Release</code>は、配布用の<code>dist</code>、ポータブル版、インストーラーを作成します。<code>Package</code>はNuitkaを実行せず、既存の<code>dist</code>を使ってインストーラーだけを再生成します。</p>
-<p>ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が <code>Output/</code> に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。</p>
+<p>ビルドが完了すると、インストーラーとポータブル版（フォルダー、ZIP）が <code>Output/</code> に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。</p>
 <p>各モードは必要に応じて、アプリ内マニュアル用の <code>README.html</code> と、AGPL対応のために同梱する <code>source.zip</code> も再生成します。</p>
-<p>制限環境向けポータブル版には、実行ファイルと同じフォルダーに <code>OfficePDFBinder.restricted-portable</code> が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。</p>
+<p>ポータブル版には、実行ファイルと同じフォルダーに <code>OfficePDFBinder.portable</code> が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。</p>
 <hr />
 <h2>9. リポジトリ運用</h2>
 <p>Gitリポジトリには、ソースコード、ビルドスクリプト、ライセンス文書、READMEを含めます。</p>

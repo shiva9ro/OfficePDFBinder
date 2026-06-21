@@ -183,12 +183,12 @@ included.
 
 ---
 
-## 7. Restricted Portable Mode
+## 7. Portable Edition
 
-The portable package contains `OfficePDFBinder.restricted-portable`. Keep this
+The portable package contains `OfficePDFBinder.portable`. Keep this
 marker file next to the executable.
 
-In restricted portable mode, Office PDF Binder:
+In the portable edition, Office PDF Binder:
 
 - does not save application settings in AppData;
 - does not write its optional debug log to the user profile; and
@@ -205,8 +205,8 @@ temporary folders, caches, or registry settings.
 Install runtime and development dependencies with:
 
 ```powershell
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ```
 
 Run automated tests with:
@@ -247,7 +247,7 @@ used for the installer and the marker-based portable ZIP.
 
 - Office PDF Binder: GNU Affero General Public License v3.0 (`LICENSE.txt`)
 - Third-party components: see `NOTICE.txt`
-- Corresponding source: included as `source.zip` in installer distributions
+- Corresponding source: included as `source.zip` in both installer and portable packages
 
 ---
 

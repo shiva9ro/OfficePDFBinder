@@ -47,10 +47,11 @@ PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファ
 
 ## 3. ダウンロード
 
-GitHub Releases から最新版のインストーラーをダウンロードしてください。
+GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。
 
 ```text
 OfficePDFBinder_Setup_1.2.0.exe
+OfficePDFBinder_Portable_1.2.0.zip
 ```
 
 インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。
@@ -211,13 +212,13 @@ OfficePDFBinder_Setup_1.2.0.exe
 Python パッケージは以下でインストールできます。
 
 ```powershell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 テスト用パッケージを追加し、pytest を実行するには次を使用します。
 
 ```powershell
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
@@ -244,11 +245,11 @@ python -m pytest
 
 `Fast`と`Release`は、配布用の`dist`、ポータブル版、インストーラーを作成します。`Package`はNuitkaを実行せず、既存の`dist`を使ってインストーラーだけを再生成します。
 
-ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が `Output/` に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。
+ビルドが完了すると、インストーラーとポータブル版（フォルダー、ZIP）が `Output/` に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。
 
 各モードは必要に応じて、アプリ内マニュアル用の `README.html` と、AGPL対応のために同梱する `source.zip` も再生成します。
 
-制限環境向けポータブル版には、実行ファイルと同じフォルダーに `OfficePDFBinder.restricted-portable` が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。
+ポータブル版には、実行ファイルと同じフォルダーに `OfficePDFBinder.portable` が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。
 
 ---
 

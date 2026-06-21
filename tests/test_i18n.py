@@ -145,7 +145,7 @@ def test_english_manual_and_bilingual_license_are_packaged_sources():
     assert '<html lang="ja">' in japanese_html
     assert '<html lang="en">' in english_html
     assert "Office PDF Binder - User Manual" in english_html
-    assert "Restricted Portable Mode" in english_html
+    assert "Portable Edition" in english_html
     assert "English\n-------" in license_text
     assert "日本語\n------" in license_text
     assert (
