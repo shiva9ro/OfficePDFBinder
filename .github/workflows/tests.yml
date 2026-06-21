@@ -27,5 +27,12 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Compile Qt translations
+        run: >
+          pyside6-lrelease
+          translations/OfficePDFBinder_en.ts
+          -qm translations/OfficePDFBinder_en.qm
+          -nounfinished
+
       - name: Run tests
         run: python -m pytest
