@@ -93,6 +93,9 @@ def convert_readme(source, destination, lang, title):
     html_body = markdown.markdown(
         markdown_content, extensions=["tables", "fenced_code"]
     )
+    # GitHubではMarkdown同士、同梱マニュアルではHTML同士を移動する。
+    html_body = html_body.replace('href="README.en.md"', 'href="README.en.html"')
+    html_body = html_body.replace('href="README.md"', 'href="README.html"')
     html_content = html_template.format(lang=lang, title=title, body=html_body)
     with open(destination, "w", encoding="utf-8") as destination_file:
         destination_file.write(html_content)

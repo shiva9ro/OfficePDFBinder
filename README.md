@@ -1,5 +1,9 @@
 # Office PDF Binder
 
+日本語 | [English](README.en.md)
+
+> **English:** Combine PDF, Word, Excel, and PowerPoint files into a single PDF. See the [English README](README.en.md).
+
 Office PDF Binder は、複数の PDF / Office ファイルを 1 つの PDF にまとめ、ページ単位で並べ替え・削除・回転ができる Windows デスクトップアプリです。
 
 PDF、Word、Excel、PowerPoint の資料をまとめて、提出用・共有用の PDF を作る作業を効率化するために作成しました。

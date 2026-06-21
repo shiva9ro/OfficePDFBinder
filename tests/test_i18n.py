@@ -138,9 +138,16 @@ def test_main_window_uses_english_catalog(qapp, qtbot, tmp_path, monkeypatch):
 
 def test_english_manual_and_bilingual_license_are_packaged_sources():
     project_root = Path(__file__).parents[1]
+    japanese_markdown = (project_root / "README.md").read_text(encoding="utf-8")
+    english_markdown = (project_root / "README.en.md").read_text(encoding="utf-8")
+    japanese_html = (project_root / "README.html").read_text(encoding="utf-8")
     english_html = (project_root / "README.en.html").read_text(encoding="utf-8")
     license_text = (project_root / "LICENSE.txt").read_text(encoding="utf-8")
 
+    assert "[English](README.en.md)" in japanese_markdown
+    assert "[日本語](README.md)" in english_markdown
+    assert 'href="README.en.html"' in japanese_html
+    assert 'href="README.html"' in english_html
     assert '<html lang="en">' in english_html
     assert "Office PDF Binder - User Manual" in english_html
     assert "Restricted Portable Mode" in english_html

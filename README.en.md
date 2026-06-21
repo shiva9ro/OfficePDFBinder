@@ -1,5 +1,7 @@
 # Office PDF Binder
 
+[日本語](README.md) | English
+
 Office PDF Binder is a Windows desktop application that combines PDF, Word,
 Excel, and PowerPoint files into a single PDF. You can organize, delete, and
 rotate individual PDF pages before saving the result.
