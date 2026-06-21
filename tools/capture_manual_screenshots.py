@@ -1,4 +1,4 @@
-"""Capture repeatable English screenshots for README.en.md."""
+"""Capture repeatable English screenshots for the English README."""
 
 import os
 from pathlib import Path

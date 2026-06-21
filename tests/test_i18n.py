@@ -1,9 +1,9 @@
-from pathlib import Path
 import re
+from pathlib import Path
 from xml.etree import ElementTree
 
-import OfficePDFBinder_Main as app_module
 import i18n
+import OfficePDFBinder_Main as app_module
 from i18n import normalize_language, resolve_language
 
 
@@ -44,24 +44,21 @@ def test_non_japanese_os_uses_english(tmp_path):
 
 
 def test_english_translation_catalog_is_complete():
-    catalog = (
-        Path(__file__).parents[1] / "translations" / "OfficePDFBinder_en.ts"
-    )
+    catalog = Path(__file__).parents[1] / "translations" / "OfficePDFBinder_en.ts"
     root = ElementTree.parse(catalog).getroot()
     messages = root.findall("./context/message")
 
     assert len(messages) >= 80
     assert all(message.findtext("translation") for message in messages)
     assert all(
-        message.find("translation").get("type") != "unfinished"
-        for message in messages
+        message.find("translation").get("type") != "unfinished" for message in messages
     )
     for message in messages:
-        source_fields = set(re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", message.findtext("source")))
+        source_fields = set(
+            re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", message.findtext("source"))
+        )
         translated_fields = set(
-            re.findall(
-                r"\{[A-Za-z_][A-Za-z0-9_]*\}", message.findtext("translation")
-            )
+            re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", message.findtext("translation"))
         )
         assert translated_fields == source_fields
 
@@ -74,10 +71,7 @@ def test_compiled_english_translation_is_loaded(qapp, monkeypatch):
     try:
         assert language == "en"
         assert loaded is True
-        assert (
-            i18n.translate("MainWindow", "ページを整理(&P)")
-            == "Organize Pages (&P)"
-        )
+        assert i18n.translate("MainWindow", "ページを整理(&P)") == "Organize Pages (&P)"
     finally:
         if i18n._active_translator is not None:
             qapp.removeTranslator(i18n._active_translator)
@@ -128,7 +122,7 @@ def test_main_window_uses_english_catalog(qapp, qtbot, tmp_path, monkeypatch):
         assert window.delete_action.text() == "Delete\nSelected"
         assert window.merge_action.text() == "Combine and\nSave PDF"
         assert window.bookmark_dock.windowTitle() == "Bookmarks"
-        assert Path(window.user_manual_path).name == "README.en.html"
+        assert Path(window.user_manual_path).name == "README.html"
     finally:
         if i18n._active_translator is not None:
             qapp.removeTranslator(i18n._active_translator)
@@ -138,19 +132,30 @@ def test_main_window_uses_english_catalog(qapp, qtbot, tmp_path, monkeypatch):
 
 def test_english_manual_and_bilingual_license_are_packaged_sources():
     project_root = Path(__file__).parents[1]
-    japanese_markdown = (project_root / "README.md").read_text(encoding="utf-8")
-    english_markdown = (project_root / "README.en.md").read_text(encoding="utf-8")
-    japanese_html = (project_root / "README.html").read_text(encoding="utf-8")
-    english_html = (project_root / "README.en.html").read_text(encoding="utf-8")
+    japanese_markdown = (project_root / "README.ja.md").read_text(encoding="utf-8")
+    english_markdown = (project_root / "README.md").read_text(encoding="utf-8")
+    japanese_html = (project_root / "README.ja.html").read_text(encoding="utf-8")
+    english_html = (project_root / "README.html").read_text(encoding="utf-8")
     license_text = (project_root / "LICENSE.txt").read_text(encoding="utf-8")
 
-    assert "[English](README.en.md)" in japanese_markdown
-    assert "[日本語](README.md)" in english_markdown
-    assert 'href="README.en.html"' in japanese_html
-    assert 'href="README.html"' in english_html
+    assert "[English](README.md)" in japanese_markdown
+    assert "[日本語](README.ja.md)" in english_markdown
+    assert 'href="README.html"' in japanese_html
+    assert 'href="README.ja.html"' in english_html
+    assert '<html lang="ja">' in japanese_html
     assert '<html lang="en">' in english_html
     assert "Office PDF Binder - User Manual" in english_html
     assert "Restricted Portable Mode" in english_html
     assert "English\n-------" in license_text
     assert "日本語\n------" in license_text
-    assert "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007" in license_text
+    assert (
+        "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007" in license_text
+    )
+
+
+def test_portable_build_regenerates_and_packages_source_archive():
+    project_root = Path(__file__).parents[1]
+    build_script = (project_root / "build_portable.ps1").read_text(encoding="utf-8")
+
+    assert '".\\create_source_archive.ps1"' in build_script
+    assert '"source.zip"' in build_script

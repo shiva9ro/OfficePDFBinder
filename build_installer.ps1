@@ -85,7 +85,7 @@ if ($LASTEXITCODE -ne 0) {
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[2/5] README.md → README.html 変換..."
+Write-Host "[2/5] 日英README → HTMLマニュアル変換..."
 Write-Host "========================================================"
 
 & $PythonExe "convert_readme.py"
@@ -99,32 +99,11 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[3/5] source.zip 作成..."
 Write-Host "========================================================"
 
-$SourceFiles = @(
-    $ScriptName,
-    "i18n.py",
-    $IssFile,
-    $IconFile,
-    $VersionFile,
-    "LICENSE.txt",
-    "NOTICE.txt",
-    "build.ps1",
-    $SelfScriptName,
-    $PortableScriptName,
-    "convert_readme.py",
-    "README.md",
-    "README.html",
-    "README.en.md",
-    "README.en.html",
-    $TranslationSource,
-    "docs\images"
-)
-$Missing = $false
-foreach ($f in $SourceFiles) {
-    if (-not (Test-Path $f)) { Write-Host "[ERROR] $f がありません" -ForegroundColor Red; $Missing=$true }
+& ".\create_source_archive.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
 }
-if ($Missing) { exit 1 }
-
-Compress-Archive -Path $SourceFiles -DestinationPath "source.zip" -Force
 Write-Host " - OK" -ForegroundColor Green
 
 # source.zip はインストーラー同梱用に作成し、ローカルバックアップも残します。

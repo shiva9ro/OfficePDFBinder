@@ -48,7 +48,7 @@ Source: "OfficePDFBinder_Main.dist\*"; DestDir: "{app}"; Flags: ignoreversion re
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "NOTICE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.html"; DestDir: "{app}"; Flags: ignoreversion
-Source: "README.en.html"; DestDir: "{app}"; Flags: ignoreversion
+Source: "README.ja.html"; DestDir: "{app}"; Flags: ignoreversion
 Source: "source.zip"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "docs\images\*"; DestDir: "{app}\docs\images"; Flags: ignoreversion recursesubdirs createallsubdirs

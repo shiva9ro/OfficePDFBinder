@@ -94,7 +94,7 @@ def convert_readme(source, destination, lang, title):
         markdown_content, extensions=["tables", "fenced_code"]
     )
     # GitHubではMarkdown同士、同梱マニュアルではHTML同士を移動する。
-    html_body = html_body.replace('href="README.en.md"', 'href="README.en.html"')
+    html_body = html_body.replace('href="README.ja.md"', 'href="README.ja.html"')
     html_body = html_body.replace('href="README.md"', 'href="README.html"')
     html_content = html_template.format(lang=lang, title=title, body=html_body)
     with open(destination, "w", encoding="utf-8") as destination_file:
@@ -105,12 +105,12 @@ def convert_readme(source, destination, lang, title):
 convert_readme(
     "README.md",
     "README.html",
-    "ja",
-    "Office PDF Binder - ユーザーマニュアル",
-)
-convert_readme(
-    "README.en.md",
-    "README.en.html",
     "en",
     "Office PDF Binder - User Manual",
+)
+convert_readme(
+    "README.ja.md",
+    "README.ja.html",
+    "ja",
+    "Office PDF Binder - ユーザーマニュアル",
 )

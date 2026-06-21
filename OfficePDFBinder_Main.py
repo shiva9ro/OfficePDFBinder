@@ -17,8 +17,8 @@ from PySide6.QtCore import (
     QMimeData,
     QObject,
     QPoint,
-    QRunnable,
     QRect,
+    QRunnable,
     QSize,
     Qt,
     QThreadPool,
@@ -76,6 +76,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
 from i18n import current_language, install_app_translator, translate
 from version import APP_NAME, APP_VERSION
 
@@ -118,9 +119,7 @@ def _get_runtime_dir():
 
 def _is_restricted_portable_mode():
     """実行ファイルの隣に専用マーカーがある場合だけ制限モードにする。"""
-    marker_path = os.path.join(
-        _get_runtime_dir(), RESTRICTED_PORTABLE_MARKER_FILENAME
-    )
+    marker_path = os.path.join(_get_runtime_dir(), RESTRICTED_PORTABLE_MARKER_FILENAME)
     return os.path.isfile(marker_path)
 
 
@@ -140,6 +139,7 @@ def _create_office_temp_pdf_path(office_path):
     path = handle.name
     handle.close()
     return path
+
 
 # --- 定数定義 ---
 # ファイル拡張子
@@ -677,9 +677,7 @@ class AppWorker(QRunnable):
             progress_percent = int((i / total_files) * 100)
             progress_text = translate(
                 "Worker", "読み込み中 ({current}/{total}): {name}"
-            ).format(
-                current=i + 1, total=total_files, name=os.path.basename(path)
-            )
+            ).format(current=i + 1, total=total_files, name=os.path.basename(path))
             self.signals.progress.emit(progress_percent, progress_text)
 
             # ファイルアクセス権限チェック
@@ -873,9 +871,7 @@ class AppWorker(QRunnable):
                         continue
                     bookmark_map.setdefault(path, []).append(
                         {
-                                "title": b.get(
-                                    "title", translate("Worker", "無題")
-                                ),
+                            "title": b.get("title", translate("Worker", "無題")),
                             "page_num": b.get("page_num", 0),
                         }
                     )
@@ -1047,9 +1043,7 @@ class AppWorker(QRunnable):
                         app_bookmark_pages.add(target_page_index)
                         pending_toc_entries.append(
                             {
-                                "title": bm.get(
-                                    "title", translate("Worker", "無題")
-                                ),
+                                "title": bm.get("title", translate("Worker", "無題")),
                                 "page_index": target_page_index,
                             }
                         )
@@ -1269,9 +1263,9 @@ class AppWorker(QRunnable):
                 except Exception as e:
                     _debug_log(f"[ROTATION DEBUG] 保存後の確認エラー: {e}")
                 self.signals.progress.emit(100, translate("Worker", "保存完了"))
-                message = translate(
-                    "Worker", "PDFを保存しました:\n{path}"
-                ).format(path=output_path)
+                message = translate("Worker", "PDFを保存しました:\n{path}").format(
+                    path=output_path
+                )
                 if failed_office_conversions:
                     skipped_files = "\n".join(
                         translate("Worker", "・{file}（{app}）").format(
@@ -1441,7 +1435,9 @@ class AppWorker(QRunnable):
         )
         return result, app
 
-    def _convert_powerpoint_to_pdf(self, path, app_instance=None, suppress_errors=False):
+    def _convert_powerpoint_to_pdf(
+        self, path, app_instance=None, suppress_errors=False
+    ):
         result, app = self._convert_office_to_pdf(
             path,
             "PowerPoint",
@@ -2554,9 +2550,7 @@ class OfficePDFBinderApp(QMainWindow):
         super().__init__()
         window_title = "Office PDF Binder"
         if _is_restricted_portable_mode():
-            window_title = translate(
-                "MainWindow", "Office PDF Binder（ポータブル版）"
-            )
+            window_title = translate("MainWindow", "Office PDF Binder（ポータブル版）")
         self.setWindowTitle(window_title)
         self.setWindowIcon(_get_app_icon())
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
@@ -2582,7 +2576,7 @@ class OfficePDFBinderApp(QMainWindow):
         self.header_footer_settings = None
         self.install_dir = _get_runtime_dir()
         manual_filename = (
-            "README.en.html" if current_language() == "en" else "README.html"
+            "README.ja.html" if current_language() == "ja" else "README.html"
         )
         self.user_manual_path = os.path.join(self.install_dir, manual_filename)
         if not os.path.exists(self.user_manual_path):
@@ -2695,7 +2689,9 @@ class OfficePDFBinderApp(QMainWindow):
             self.config.set(
                 "Bookmarks", "show_on_open", str(self.show_bookmarks_on_open)
             )
-            window_rect = self.normalGeometry() if self.isMaximized() else self.geometry()
+            window_rect = (
+                self.normalGeometry() if self.isMaximized() else self.geometry()
+            )
             window_rect = _fit_rect_to_available_geometry(window_rect)
             self.config.set("Window", "x", str(window_rect.x()))
             self.config.set("Window", "y", str(window_rect.y()))
@@ -3005,14 +3001,18 @@ class OfficePDFBinderApp(QMainWindow):
         )
         self.about_action.triggered.connect(self._show_about_dialog)
 
-        self.open_manual_action = QAction(translate("MainWindow", "マニュアル(&M)"), self)
+        self.open_manual_action = QAction(
+            translate("MainWindow", "マニュアル(&M)"), self
+        )
         self.open_manual_action.setToolTip(
             translate("MainWindow", "ユーザーマニュアルを既定のブラウザーで開く")
         )
         self.open_manual_action.triggered.connect(self._open_user_manual)
 
         # --- しおりパネルアクション ---
-        self.bookmark_panel_action = QAction(translate("MainWindow", "しおり(&B)"), self)
+        self.bookmark_panel_action = QAction(
+            translate("MainWindow", "しおり(&B)"), self
+        )
         self.bookmark_panel_action.setCheckable(True)
         self.bookmark_panel_action.setChecked(False)
         self.bookmark_panel_action.triggered.connect(self._toggle_bookmark_panel)
@@ -3024,16 +3024,22 @@ class OfficePDFBinderApp(QMainWindow):
         self.new_action.setToolTip(translate("MainWindow", "新しい作業を開始"))
         self.new_action.triggered.connect(self._new_project)
 
-        self.open_action = QAction(translate("MainWindow", "ファイルを追加(&O)..."), self)
+        self.open_action = QAction(
+            translate("MainWindow", "ファイルを追加(&O)..."), self
+        )
         self.open_action.setShortcut(QKeySequence.Open)
         self.open_action.setIcon(self.get_icon("fa5s.folder-open", color="#2ecc71"))
         self.open_action.setToolTip(translate("MainWindow", "ファイルを追加"))
         self.open_action.triggered.connect(self._add_files)
 
-        self.save_action = QAction(translate("MainWindow", "名前を付けて保存(&S)..."), self)
+        self.save_action = QAction(
+            translate("MainWindow", "名前を付けて保存(&S)..."), self
+        )
         self.save_action.setShortcut(QKeySequence.Save)
         self.save_action.setIcon(self.get_icon("fa5s.save", color="#3498db"))
-        self.save_action.setToolTip(translate("MainWindow", "PDFに結合して名前を付けて保存"))
+        self.save_action.setToolTip(
+            translate("MainWindow", "PDFに結合して名前を付けて保存")
+        )
         self.save_action.triggered.connect(self._merge_and_save)
 
         self.export_selected_pdf_action = QAction(
@@ -3072,7 +3078,9 @@ class OfficePDFBinderApp(QMainWindow):
         self.redo_action.setEnabled(False)
         self.redo_action.triggered.connect(self._redo)
 
-        self.select_all_action = QAction(translate("MainWindow", "すべて選択(&A)"), self)
+        self.select_all_action = QAction(
+            translate("MainWindow", "すべて選択(&A)"), self
+        )
         self.select_all_action.setShortcut(QKeySequence.SelectAll)
         self.select_all_action.setToolTip(translate("MainWindow", "すべての項目を選択"))
         self.select_all_action.triggered.connect(self._select_all)
@@ -3088,7 +3096,9 @@ class OfficePDFBinderApp(QMainWindow):
         self.zoom_out_action.setToolTip(translate("MainWindow", "表示を縮小 (Ctrl+-)"))
         self.zoom_out_action.triggered.connect(self._zoom_out)
 
-        self.zoom_fit_action = QAction(translate("MainWindow", "ウィンドウに合わせる(&F)"), self)
+        self.zoom_fit_action = QAction(
+            translate("MainWindow", "ウィンドウに合わせる(&F)"), self
+        )
         self.zoom_fit_action.setShortcut("Ctrl+0")
         self.zoom_fit_action.setToolTip(
             translate("MainWindow", "ウィンドウに合わせる (Ctrl+0)")
@@ -4116,7 +4126,9 @@ class OfficePDFBinderApp(QMainWindow):
             )
             y += line_gap
 
-    def _draw_spreadsheet_thumbnail_content(self, draw, left, top, right, bottom, accent):
+    def _draw_spreadsheet_thumbnail_content(
+        self, draw, left, top, right, bottom, accent
+    ):
         try:
             accent_rgb = tuple(
                 int(accent.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)
@@ -4915,9 +4927,7 @@ class OfficePDFBinderApp(QMainWindow):
                 continue
             export.append(
                 {
-                    "title": bookmark.get(
-                        "title", translate("MainWindow", "無題")
-                    ),
+                    "title": bookmark.get("title", translate("MainWindow", "無題")),
                     "path": path,
                     "page_num": bookmark.get("page_num", 0),
                 }
@@ -5324,33 +5334,39 @@ class OfficePDFBinderApp(QMainWindow):
                     unique_files.add(data["original_path"])
 
             status_parts = [
-                translate("MainWindow", "PDFページ: {count}").format(
-                    count=counts["pdf"]
-                )
-                if counts["pdf"] > 0
-                else None,
-                translate("MainWindow", "Word: {count}").format(
-                    count=counts["word"]
-                )
-                if counts["word"] > 0
-                else None,
-                translate("MainWindow", "Excel: {count}").format(
-                    count=counts["excel"]
-                )
-                if counts["excel"] > 0
-                else None,
-                translate("MainWindow", "PowerPoint: {count}").format(
-                    count=counts["powerpoint"]
-                )
-                if counts["powerpoint"] > 0
-                else None,
+                (
+                    translate("MainWindow", "PDFページ: {count}").format(
+                        count=counts["pdf"]
+                    )
+                    if counts["pdf"] > 0
+                    else None
+                ),
+                (
+                    translate("MainWindow", "Word: {count}").format(
+                        count=counts["word"]
+                    )
+                    if counts["word"] > 0
+                    else None
+                ),
+                (
+                    translate("MainWindow", "Excel: {count}").format(
+                        count=counts["excel"]
+                    )
+                    if counts["excel"] > 0
+                    else None
+                ),
+                (
+                    translate("MainWindow", "PowerPoint: {count}").format(
+                        count=counts["powerpoint"]
+                    )
+                    if counts["powerpoint"] > 0
+                    else None
+                ),
             ]
 
             file_info_text = " | ".join(filter(None, status_parts))
-            selection_info_text = (
-                translate("MainWindow", "選択中: {count}件").format(
-                    count=len(self.page_list_widget.selectedItems())
-                )
+            selection_info_text = translate("MainWindow", "選択中: {count}件").format(
+                count=len(self.page_list_widget.selectedItems())
             )
 
             self.file_status_label.setText(file_info_text)
@@ -5455,9 +5471,7 @@ class OfficePDFBinderApp(QMainWindow):
         btn_notice.setIcon(self.get_icon("fa5s.file-alt", "#f1c40f"))
         btn_notice.clicked.connect(lambda: self._open_local_file("NOTICE.txt"))
 
-        btn_source = QPushButton(
-            translate("AboutDialog", "ソースコードの場所を開く")
-        )
+        btn_source = QPushButton(translate("AboutDialog", "ソースコードの場所を開く"))
         btn_source.setIcon(self.get_icon("fa5s.code", "#2ecc71"))
         btn_source.clicked.connect(lambda: self._open_file_folder("source.zip"))
 
@@ -5531,9 +5545,9 @@ class OfficePDFBinderApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 translate("MainWindow", "エラー"),
-                translate("MainWindow", "フォルダーを開けませんでした:\n{error}").format(
-                    error=e
-                ),
+                translate(
+                    "MainWindow", "フォルダーを開けませんでした:\n{error}"
+                ).format(error=e),
             )
 
     @Slot(str)
@@ -6038,8 +6052,12 @@ def _default_window_geometry_for_available(available):
     """指定された画面領域に対する既定のウィンドウ位置とサイズを返す。"""
     width = min(INITIAL_WINDOW_WIDTH, max(MIN_WINDOW_WIDTH, available.width() - 80))
     height = min(INITIAL_WINDOW_HEIGHT, max(MIN_WINDOW_HEIGHT, available.height() - 80))
-    x = available.left() + min(INITIAL_WINDOW_X, max(0, (available.width() - width) // 2))
-    y = available.top() + min(INITIAL_WINDOW_Y, max(0, (available.height() - height) // 3))
+    x = available.left() + min(
+        INITIAL_WINDOW_X, max(0, (available.width() - width) // 2)
+    )
+    y = available.top() + min(
+        INITIAL_WINDOW_Y, max(0, (available.height() - height) // 3)
+    )
     return _fit_rect_to_available_geometry(QRect(x, y, width, height))
 
 

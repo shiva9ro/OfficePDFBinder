@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office PDF Binder - ユーザーマニュアル</title>
+    <style>
+        body {
+            font-family: 'Meiryo UI', 'Segoe UI', 'Yu Gothic', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #555;
+            margin-top: 20px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 20px 0;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+<h1>Office PDF Binder</h1>
+<p><a href="README.html">English</a> | 日本語</p>
+<p>Office PDF Binder は、PDFをページ単位で並べ替え・削除・回転し、Word / Excel / PowerPoint 文書と一緒に1つのPDFへ結合できる Windows デスクトップアプリです。</p>
+<p>PDF、Word、Excel、PowerPoint の資料をまとめて、提出用・共有用の PDF を作る作業を効率化するために作成しました。</p>
+<p>PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファイル単位で追加し、保存時にMicrosoft OfficeでPDFへ変換して結合します。</p>
+<p><img alt="Office PDF Binder のメイン画面" src="docs/images/screenshot-main.png" /></p>
+<hr />
+<h2>1. 対応環境</h2>
+<ul>
+<li>Windows 10 / 11（64bit）</li>
+<li>Microsoft Office（Word / Excel / PowerPoint ファイルを変換する場合）</li>
+<li>インストーラー版の利用に、追加の Python やライブラリは不要</li>
+</ul>
+<hr />
+<h2>2. 主な機能</h2>
+<ul>
+<li>PDFをページ単位で読み込み、並べ替え・削除・回転して結合</li>
+<li>Word / Excel / PowerPointをファイル単位で追加し、保存時にPDFへ変換して結合</li>
+<li>対応ファイルをアプリ画面へドラッグ&amp;ドロップして開く機能</li>
+<li>ページごとの移動・削除・回転（90 度単位）</li>
+<li>ドラッグ&amp;ドロップによるページ並び替え（複数選択対応）</li>
+<li>ファイルの重複チェック</li>
+<li>既存PDFしおりの読み込み</li>
+<li>自動しおり（ファイル先頭ページ）と手動しおり編集</li>
+<li>保存PDFを開いたときのしおりパネル自動表示</li>
+<li>ヘッダーとフッターの追加（テキスト、日付、ページ番号）</li>
+<li>選択ページをPDFとしてエクスポート</li>
+<li>選択ページを画像としてエクスポート（JPEG形式・300dpi・PDFページのみ対象）</li>
+<li>ダブルクリックで元のファイルを標準ビューアで開く</li>
+<li>ズーム 5 段階（Ctrl+ホイール対応）とサムネイル高速化</li>
+<li>Undo / Redo（15 ステップ）</li>
+<li>エクスプローラーの右クリックメニューからファイル追加</li>
+</ul>
+<p>対応拡張子:</p>
+<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm</code></p>
+<hr />
+<h2>3. ダウンロード</h2>
+<p>GitHub Releases から最新版のインストーラーをダウンロードしてください。</p>
+<pre><code class="language-text">OfficePDFBinder_Setup_1.2.0.exe
+</code></pre>
+<p>インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。</p>
+<h3>インストール時の注意</h3>
+<ul>
+<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.2.0 をインストールしてください。</li>
+<li>本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。</li>
+<li>Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office がインストールされている必要があります。</li>
+</ul>
+<hr />
+<h2>4. 基本操作</h2>
+<h3>4.1 ファイル追加</h3>
+<ul>
+<li>ツールバーの「ファイル追加」ボタン、<code>Ctrl+O</code>、またはアプリ画面へのドラッグ&amp;ドロップで追加できます。</li>
+<li>対応ファイルをアプリ画面に直接ドロップすると、そのファイルを開いてページ一覧に追加できます。</li>
+<li>エクスプローラーで複数ファイルを選択して右クリックし、「Office PDF Binder で開く」から追加できます。</li>
+<li>既に追加済みのファイルは自動でスキップされます。</li>
+</ul>
+<h3>4.2 ページ編集</h3>
+<ul>
+<li>ページを選択すると、ツールバーや右クリックメニューの操作が有効になります。</li>
+<li>左右 90 度回転、上下移動、一番上 / 一番下への移動、削除ができます。</li>
+<li><code>Delete</code> キーで削除、<code>Ctrl+A</code> ですべて選択できます。</li>
+<li>複数ページを選択してドラッグ&amp;ドロップで並び替えできます。</li>
+<li>選択したページを長押し（約0.5秒）すると、ページ移動モードに切り替わります。</li>
+</ul>
+<h3>4.3 新規作成</h3>
+<ul>
+<li><code>ファイル → 新規</code> で、現在のリストをクリアして初期状態に戻せます。</li>
+</ul>
+<h3>4.4 しおり</h3>
+<ul>
+<li><code>表示 → しおり</code> で、しおりパネルの表示/非表示を切り替えます。</li>
+<li>PDFに既存のしおりがある場合は、読み込み時に取り込まれます。</li>
+<li><code>設定 → ファイルごとにしおりを自動作成</code> で、ファイル先頭ページの自動しおりを切り替えられます。</li>
+<li>選択ページを右クリックして「選択ページにしおりを追加」を選ぶと、手動しおりを追加できます。</li>
+<li>しおりパネルから、しおりの追加、名前変更、削除ができます。</li>
+<li>しおりをダブルクリックすると、該当ページへ移動します。</li>
+<li>自動しおりの名前を変更すると、手動しおりとして扱われます。</li>
+<li><code>設定 → 保存したPDFを開くときにしおりを表示</code> で、保存PDFを開いたときにPDFビューアのしおりパネルを表示するかを切り替えられます。</li>
+</ul>
+<h3>4.5 ズーム</h3>
+<ul>
+<li><code>表示 → 拡大</code> / <code>縮小</code> / <code>ウィンドウに合わせる</code> で表示倍率を変更できます。</li>
+<li><code>Ctrl</code> + ホイールでもズームできます。</li>
+<li><code>Ctrl+0</code> で標準表示に戻せます。</li>
+<li>5 段階（約 0.33〜3.06 倍）を切り替え、サムネイルはキャッシュから高速に更新されます。</li>
+</ul>
+<h3>4.6 ヘッダーとフッター</h3>
+<ul>
+<li><code>設定 → ヘッダーとフッター</code> で、保存時に追加するヘッダーとフッターを設定できます。</li>
+<li>ヘッダー / フッターそれぞれに、左・中央・右のテキストを指定できます。</li>
+<li>右側に現在の日付を自動挿入できます。</li>
+<li>ページ番号の位置、形式、開始番号、フォントサイズを設定できます。</li>
+<li>設定内容は保存時に全ページへ適用されます。</li>
+</ul>
+<p><img alt="ヘッダー・フッター設定画面" src="docs/images/screenshot-header-footer.png" /></p>
+<h3>4.7 エクスポート</h3>
+<ul>
+<li><code>ファイル → 選択ページをPDFとして書き出し</code> で、選択したページを書き出せます。</li>
+<li>PDFページは選択ページのみを書き出します。</li>
+<li>Word / Excel / PowerPoint は、そのファイルを1つ選んだ場合に、そのファイル全体を書き出します。</li>
+<li><code>ファイル → 選択ページを画像として書き出し</code> で、選択したPDFページを JPEG（300dpi）として書き出せます。</li>
+<li>画像書き出しはPDFページのみ対象です。</li>
+</ul>
+<h3>4.8 ファイルを開く</h3>
+<ul>
+<li>ページをダブルクリックすると、元のファイルを標準ビューアで開きます。</li>
+</ul>
+<h3>4.9 PDF保存</h3>
+<ul>
+<li><code>ファイル → 名前を付けて保存</code> または <code>Ctrl+S</code> で結合PDFを保存します。</li>
+<li>保存完了後、結合したPDFファイルが標準ビューアで自動的に開きます。</li>
+<li>その後、リストをクリアするかどうか確認ダイアログが表示されます。</li>
+</ul>
+<hr />
+<h2>5. 右クリックメニュー</h2>
+<p>ページを右クリックすると、選択状態に応じて以下の操作ができます。</p>
+<ul>
+<li>ファイル追加</li>
+<li>左右 90 度回転</li>
+<li>一番上 / 上 / 下 / 一番下へ移動</li>
+<li>選択ページにしおりを追加</li>
+<li>選択ページをPDFとして書き出し</li>
+<li>選択ページを画像として書き出し</li>
+<li>削除</li>
+</ul>
+<hr />
+<h2>6. キーボードショートカット</h2>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>ショートカット</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>新規</td>
+<td><code>Ctrl+N</code></td>
+</tr>
+<tr>
+<td>ファイル追加</td>
+<td><code>Ctrl+O</code></td>
+</tr>
+<tr>
+<td>保存</td>
+<td><code>Ctrl+S</code></td>
+</tr>
+<tr>
+<td>終了</td>
+<td><code>Ctrl+Q</code></td>
+</tr>
+<tr>
+<td>全選択</td>
+<td><code>Ctrl+A</code></td>
+</tr>
+<tr>
+<td>削除</td>
+<td><code>Delete</code></td>
+</tr>
+<tr>
+<td>ズームイン / アウト</td>
+<td><code>Ctrl</code> + <code>+</code> / <code>-</code> または <code>Ctrl</code> + ホイール</td>
+</tr>
+<tr>
+<td>ウィンドウに合わせる</td>
+<td><code>Ctrl+0</code></td>
+</tr>
+<tr>
+<td>ヘッダーとフッター</td>
+<td><code>Ctrl+H</code></td>
+</tr>
+<tr>
+<td>元に戻す / やり直し</td>
+<td><code>Ctrl+Z</code> / <code>Ctrl+Y</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. トラブルシューティング</h2>
+<h3>Office ファイルが追加できない</h3>
+<ul>
+<li>Microsoft Office がインストール済みか確認してください。</li>
+<li>対象ファイルが他のアプリで開かれていないか確認してください。</li>
+<li>パスワード保護や破損したファイルは変換できない場合があります。</li>
+</ul>
+<h3>PDF 保存に失敗する</h3>
+<ul>
+<li>保存先に書き込み権限があるか確認してください。</li>
+<li>空き容量が 100MB 以上あるか確認してください。</li>
+<li>保存先ファイルを他アプリで開いていないか確認してください。</li>
+</ul>
+<h3>画像として書き出せない</h3>
+<ul>
+<li>画像書き出しはPDFページのみ対象です。</li>
+<li>Word / Excel / PowerPoint などのOfficeページは画像書き出し対象外です。</li>
+</ul>
+<h3>メモリ不足 / 画面が固まる</h3>
+<ul>
+<li>大量ページを扱う場合はファイルを分割して処理してください。</li>
+<li>ズーム倍率を下げるとサムネイル再生成が軽くなります。</li>
+</ul>
+<hr />
+<h2>8. 開発・ビルド</h2>
+<p>開発時は、OfficePDFBinder 用の Python 環境を有効化して作業します。</p>
+<p>確認済みの開発環境:</p>
+<ul>
+<li>Python 3.12.12</li>
+</ul>
+<p>主な依存関係:</p>
+<ul>
+<li>PyMuPDF</li>
+<li>PySide6</li>
+<li>Pillow</li>
+<li>qtawesome</li>
+<li>pywin32</li>
+<li>Nuitka</li>
+<li>Markdown</li>
+<li>Inno Setup 6</li>
+</ul>
+<p>Python パッケージは以下でインストールできます。</p>
+<pre><code class="language-powershell">pip install -r requirements.txt
+</code></pre>
+<p>テスト用パッケージを追加し、pytest を実行するには次を使用します。</p>
+<pre><code class="language-powershell">pip install -r requirements-dev.txt
+python -m pytest
+</code></pre>
+<p>自動テストの内訳と、Office・インストーラーを含む手動確認項目は
+<a href="TESTING.md"><code>TESTING.md</code></a> を参照してください。</p>
+<p>ビルド操作は <code>build.ps1</code> に統一しています。本体を変更せず、既存の <code>dist</code> から説明書とインストーラーだけを再生成する場合は、次を実行します。</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Package
+</code></pre>
+<p>本体変更後の開発確認では、Nuitka中間生成物を再利用する高速ビルドを実行します。</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Fast
+</code></pre>
+<p>公開用の最終確認では、クリーンビルドを実行します。</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Release
+</code></pre>
+<p><code>Fast</code>と<code>Release</code>は、配布用の<code>dist</code>、ポータブル版、インストーラーを作成します。<code>Package</code>はNuitkaを実行せず、既存の<code>dist</code>を使ってインストーラーだけを再生成します。</p>
+<p>ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が <code>Output/</code> に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。</p>
+<p>各モードは必要に応じて、アプリ内マニュアル用の <code>README.html</code> と、AGPL対応のために同梱する <code>source.zip</code> も再生成します。</p>
+<p>制限環境向けポータブル版には、実行ファイルと同じフォルダーに <code>OfficePDFBinder.restricted-portable</code> が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。</p>
+<hr />
+<h2>9. リポジトリ運用</h2>
+<p>Gitリポジトリには、ソースコード、ビルドスクリプト、ライセンス文書、READMEを含めます。</p>
+<p>以下はGit管理対象外です。</p>
+<ul>
+<li>Nuitka のビルド成果物</li>
+<li>インストーラー</li>
+<li><code>source.zip</code></li>
+<li>ローカルバックアップ</li>
+<li>検証用ファイルや一時ファイル</li>
+</ul>
+<p>配布用インストーラーは、GitHub Releases の Assets として公開します。</p>
+<hr />
+<h2>10. ライセンス</h2>
+<ul>
+<li>ライセンス: GNU AGPL v3.0（詳細は <code>LICENSE.txt</code>）</li>
+<li>使用ライブラリ: PyMuPDF, PySide6, Pillow, qtawesome, pywin32 など（詳細は <code>NOTICE.txt</code>）</li>
+</ul>
+<hr />
+<p>Copyright (C) 2026 Takeshi Kashiwagi</p>
+</body>
+</html>

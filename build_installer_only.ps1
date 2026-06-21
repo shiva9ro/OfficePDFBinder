@@ -36,7 +36,7 @@ if (Test-Path "Output") {
 if (Test-Path "source.zip"){ Remove-Item -Force "source.zip" }
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[2/3] README.md → README.html 変換 & source.zip 作成..."
+Write-Host "[2/3] 日英README → HTMLマニュアル変換 & source.zip 作成..."
 Write-Host "========================================================"
 
 if (Test-Path "convert_readme.py") {
@@ -50,37 +50,11 @@ if (Test-Path "convert_readme.py") {
     Write-Host "[WARN] convert_readme.py が見つからないため、README.html の再生成をスキップします。" -ForegroundColor Yellow
 }
 
-$SourceFiles = @(
-    "OfficePDFBinder_Main.py",
-    "i18n.py",
-    $IssFile,
-    "app.ico",
-    $VersionFile,
-    "LICENSE.txt",
-    "NOTICE.txt",
-    "build.ps1",
-    "build_installer.ps1",
-    "build_portable.ps1",
-    $SelfScriptName,
-    "convert_readme.py",
-    "README.md",
-    "README.html",
-    "README.en.md",
-    "README.en.html",
-    "translations\OfficePDFBinder_en.ts",
-    "docs\images"
-)
-
-$Missing = $false
-foreach ($f in $SourceFiles) {
-    if (-not (Test-Path $f)) {
-        Write-Host "[ERROR] $f がありません" -ForegroundColor Red
-        $Missing = $true
-    }
+& ".\create_source_archive.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
 }
-if ($Missing) { exit 1 }
-
-Compress-Archive -Path $SourceFiles -DestinationPath "source.zip" -Force
 Write-Host " - source.zip 作成完了" -ForegroundColor Green
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
