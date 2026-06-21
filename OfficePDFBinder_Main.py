@@ -76,6 +76,26 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from i18n import current_language, install_app_translator, translate
+from version import APP_NAME, APP_VERSION
+
+# --- Optional libraries ---
+try:
+    import qtawesome as qta
+except ImportError:
+    qta = None
+    print("警告: qtawesomeが未インストールです。アイコンは表示されません。")
+
+# --- Windows-specific for Office conversion ---
+if sys.platform == "win32":
+    try:
+        import pythoncom
+        import win32com.client
+    except ImportError:
+        win32com = None
+        print("警告: pywin32が未インストールです。Officeファイルの処理はできません。")
+else:
+    win32com = None
 
 _STARTUP_TIME = time.perf_counter()
 INITIAL_WINDOW_X = 100
@@ -87,8 +107,6 @@ MIN_WINDOW_HEIGHT = 560
 WINDOW_SCREEN_MARGIN = 40
 APP_ICON_FILENAME = "app.ico"
 RESTRICTED_PORTABLE_MARKER_FILENAME = "OfficePDFBinder.restricted-portable"
-
-from version import APP_NAME, APP_VERSION
 
 
 def _get_runtime_dir():
@@ -122,24 +140,6 @@ def _create_office_temp_pdf_path(office_path):
     path = handle.name
     handle.close()
     return path
-
-# --- Optional libraries ---
-try:
-    import qtawesome as qta
-except ImportError:
-    qta = None
-    print("警告: qtawesomeが未インストールです。アイコンは表示されません。")
-
-# --- Windows-specific for Office conversion ---
-if sys.platform == "win32":
-    try:
-        import pythoncom
-        import win32com.client
-    except ImportError:
-        win32com = None
-        print("警告: pywin32が未インストールです。Officeファイルの処理はできません。")
-else:
-    win32com = None
 
 # --- 定数定義 ---
 # ファイル拡張子
@@ -660,7 +660,10 @@ class AppWorker(QRunnable):
                 self._run_export_images(**self.kwargs)
         except Exception as e:
             self.signals.error.emit(
-                "予期せぬエラー", f"{self.task_name} 実行中にエラーが発生しました:\n{e}"
+                translate("Worker", "予期しないエラー"),
+                translate(
+                    "Worker", "{task}の実行中にエラーが発生しました:\n{error}"
+                ).format(task=self.task_name, error=e),
             )
         finally:
             if sys.platform == "win32" and win32com:
@@ -672,38 +675,31 @@ class AppWorker(QRunnable):
             if not self.is_running:
                 break
             progress_percent = int((i / total_files) * 100)
-            progress_text = (
-                f"読み込み中 ({i+1}/{total_files}): {os.path.basename(path)}"
+            progress_text = translate(
+                "Worker", "読み込み中 ({current}/{total}): {name}"
+            ).format(
+                current=i + 1, total=total_files, name=os.path.basename(path)
             )
             self.signals.progress.emit(progress_percent, progress_text)
 
             # ファイルアクセス権限チェック
             if not os.path.exists(path):
                 self.signals.error.emit(
-                    "ファイルが見つかりません",
-                    f"ファイル '{os.path.basename(path)}' が見つかりません。\n\n"
-                    "考えられる原因:\n"
-                    "・ファイルが移動または削除された\n"
-                    "・ファイルパスが変更された\n"
-                    "・ネットワークドライブが切断された\n\n"
-                    "解決方法:\n"
-                    "・ファイルの場所を確認してください\n"
-                    "・ファイルが存在することを確認してください",
+                    translate("Worker", "ファイルが見つかりません"),
+                    translate(
+                        "Worker",
+                        "'{name}'が見つかりません。ファイルが移動または削除されたか、ネットワークドライブが切断されている可能性があります。\n\nファイルの場所を確認してください。",
+                    ).format(name=os.path.basename(path)),
                 )
                 continue
 
             if not os.access(path, os.R_OK):
                 self.signals.error.emit(
-                    "ファイルを読み取れません",
-                    f"ファイル '{os.path.basename(path)}' を読み取る権限がありません。\n\n"
-                    "考えられる原因:\n"
-                    "・ファイルが他のアプリケーションで開かれている\n"
-                    "・ファイルのアクセス権限が不足している\n"
-                    "・ファイルが読み取り専用になっている\n\n"
-                    "解決方法:\n"
-                    "・ファイルを開いている他のアプリケーションを閉じてください\n"
-                    "・ファイルのプロパティでアクセス権限を確認してください\n"
-                    "・管理者権限でアプリケーションを実行してみてください",
+                    translate("Worker", "ファイルを読み取れません"),
+                    translate(
+                        "Worker",
+                        "'{name}'を読み取る権限がありません。別のアプリケーションで開かれていないか、ファイルのアクセス権限を確認してください。",
+                    ).format(name=os.path.basename(path)),
                 )
                 continue
 
@@ -764,17 +760,11 @@ class AppWorker(QRunnable):
                             self.signals.bookmarks_ready.emit(path, pdf_bookmarks)
                 except Exception as e:
                     self.signals.error.emit(
-                        "PDFファイルを読み込めませんでした",
-                        f"PDFファイル '{os.path.basename(path)}' を読み込むことができませんでした。\n\n"
-                        f"エラー詳細: {e}\n\n"
-                        "考えられる原因:\n"
-                        "・PDFファイルが破損している\n"
-                        "・PDFファイルが暗号化されている\n"
-                        "・PDFファイルの形式がサポートされていない\n\n"
-                        "解決方法:\n"
-                        "・PDFファイルが正常に開けるか確認してください\n"
-                        "・別のPDFビューアーでファイルを開いてみてください\n"
-                        "・ファイルが破損していないか確認してください",
+                        translate("Worker", "PDFファイルを読み込めません"),
+                        translate(
+                            "Worker",
+                            "'{name}'を読み込めませんでした。ファイルが破損、暗号化されているか、未対応の形式である可能性があります。\n\nエラー詳細: {error}",
+                        ).format(name=os.path.basename(path), error=e),
                     )
             elif file_ext in SUPPORTED_WORD:
                 self.signals.item_ready.emit(
@@ -799,12 +789,20 @@ class AppWorker(QRunnable):
                     }
                 )
         if self.is_running:
-            self.signals.progress.emit(100, "ファイルの読み込みが完了しました。")
+            self.signals.progress.emit(
+                100, translate("Worker", "ファイルの読み込みが完了しました。")
+            )
             self.signals.finished.emit(
-                self.task_name, "完了", "ファイルの追加が完了しました。"
+                self.task_name,
+                translate("Worker", "完了"),
+                translate("Worker", "ファイルの追加が完了しました。"),
             )
         else:
-            self.signals.finished.emit("中止", "中止", "処理が中止されました。")
+            self.signals.finished.emit(
+                "cancelled",
+                translate("Worker", "中止"),
+                translate("Worker", "処理を中止しました。"),
+            )
 
     def _run_merge_save(
         self,
@@ -822,32 +820,21 @@ class AppWorker(QRunnable):
                 os.makedirs(output_dir, exist_ok=True)
             except Exception as e:
                 self.signals.error.emit(
-                    "出力ディレクトリを作成できませんでした",
-                    f"出力ディレクトリ '{output_dir}' を作成できませんでした。\n\n"
-                    f"エラー詳細: {e}\n\n"
-                    "考えられる原因:\n"
-                    "・ディレクトリへのアクセス権限が不足している\n"
-                    "・ディスクが満杯になっている\n"
-                    "・パスが無効である\n\n"
-                    "解決方法:\n"
-                    "・別の保存先を選択してください\n"
-                    "・管理者権限でアプリケーションを実行してみてください\n"
-                    "・ディスクの空き容量を確認してください",
+                    translate("Worker", "保存先フォルダーを作成できません"),
+                    translate(
+                        "Worker",
+                        "保存先フォルダー'{path}'を作成できませんでした。アクセス権限、パス、ディスクの空き容量を確認してください。\n\nエラー詳細: {error}",
+                    ).format(path=output_dir, error=e),
                 )
                 return
 
         if not os.access(output_dir, os.W_OK):
             self.signals.error.emit(
-                "保存先に書き込めません",
-                f"出力ディレクトリ '{output_dir}' に書き込む権限がありません。\n\n"
-                "考えられる原因:\n"
-                "・ディレクトリへの書き込み権限が不足している\n"
-                "・ディレクトリが読み取り専用になっている\n"
-                "・ネットワークドライブが切断された\n\n"
-                "解決方法:\n"
-                "・別の保存先を選択してください\n"
-                "・ディレクトリのプロパティでアクセス権限を確認してください\n"
-                "・管理者権限でアプリケーションを実行してみてください",
+                translate("Worker", "保存先に書き込めません"),
+                translate(
+                    "Worker",
+                    "保存先フォルダー'{path}'に書き込む権限がありません。別の保存先を選択するか、アクセス権限を確認してください。",
+                ).format(path=output_dir),
             )
             return
 
@@ -857,14 +844,15 @@ class AppWorker(QRunnable):
             free_space_mb = stat.free / (1024 * 1024)
             if free_space_mb < MIN_FREE_SPACE_MB:
                 self.signals.error.emit(
-                    "ディスク容量が不足しています",
-                    f"出力ディレクトリ '{output_dir}' の空き容量が不足しています。\n\n"
-                    f"現在の空き容量: {free_space_mb:.1f}MB\n"
-                    f"必要な空き容量: {MIN_FREE_SPACE_MB}MB以上\n\n"
-                    "解決方法:\n"
-                    "・不要なファイルを削除してディスク容量を確保してください\n"
-                    "・別のドライブに保存してください\n"
-                    "・ディスククリーンアップを実行してください",
+                    translate("Worker", "ディスクの空き容量が不足しています"),
+                    translate(
+                        "Worker",
+                        "保存先フォルダー'{path}'の空き容量が不足しています。\n\n現在の空き容量: {free:.1f} MB\n必要な空き容量: {required} MB以上",
+                    ).format(
+                        path=output_dir,
+                        free=free_space_mb,
+                        required=MIN_FREE_SPACE_MB,
+                    ),
                 )
                 return
         except Exception as e:
@@ -885,7 +873,9 @@ class AppWorker(QRunnable):
                         continue
                     bookmark_map.setdefault(path, []).append(
                         {
-                            "title": b.get("title", "無題"),
+                                "title": b.get(
+                                    "title", translate("Worker", "無題")
+                                ),
                             "page_num": b.get("page_num", 0),
                         }
                     )
@@ -943,7 +933,9 @@ class AppWorker(QRunnable):
                     # アプリケーションインスタンスを取得または作成
                     if office_type not in office_apps:
                         self.signals.non_cancellable_started.emit(
-                            f"{app_name}ファイルを変換中..."
+                            translate("Worker", "{app}ファイルを変換中...").format(
+                                app=app_name
+                            )
                         )
                         office_conversion_started = True
                         office_apps[office_type] = None
@@ -1011,7 +1003,9 @@ class AppWorker(QRunnable):
                     break
                 self.signals.progress.emit(
                     int(((i + 1) / total_files) * 100),
-                    f"処理中: {os.path.basename(path)}",
+                    translate("Worker", "処理中: {name}").format(
+                        name=os.path.basename(path)
+                    ),
                 )
 
                 # このファイルのページが挿入される前の総ページ数を、しおりの開始位置として使う。
@@ -1053,7 +1047,9 @@ class AppWorker(QRunnable):
                         app_bookmark_pages.add(target_page_index)
                         pending_toc_entries.append(
                             {
-                                "title": bm.get("title", "無題"),
+                                "title": bm.get(
+                                    "title", translate("Worker", "無題")
+                                ),
                                 "page_index": target_page_index,
                             }
                         )
@@ -1093,7 +1089,9 @@ class AppWorker(QRunnable):
                             pending_toc_entries.append(
                                 {
                                     "title": (
-                                        toc_entry[1] if len(toc_entry) > 1 else "無題"
+                                        toc_entry[1]
+                                        if len(toc_entry) > 1
+                                        else translate("Worker", "無題")
                                     ),
                                     "page_index": target_page_index,
                                 }
@@ -1184,7 +1182,12 @@ class AppWorker(QRunnable):
                             "zoom": 0,
                         }
                         toc_list.append(
-                            [1, entry.get("title", "無題"), page_index + 1, dest]
+                            [
+                                1,
+                                entry.get("title", translate("Worker", "無題")),
+                                page_index + 1,
+                                dest,
+                            ]
                         )
                 if toc_list:
                     final_doc.set_toc(toc_list)
@@ -1234,12 +1237,16 @@ class AppWorker(QRunnable):
                             f"回転={page.rotation}"
                         )
 
-                self.signals.progress.emit(95, "ファイルを最適化して保存中...")
+                self.signals.progress.emit(
+                    95, translate("Worker", "PDFを最適化して保存中...")
+                )
                 if final_doc.page_count == 0:
                     self.signals.error.emit(
-                        "保存できるページがありません",
-                        "PDFに保存できるページがありませんでした。\n\n"
-                        "Officeファイルの変換に失敗した場合は、Microsoft Officeが正しくインストールされているか確認してください。",
+                        translate("Worker", "保存できるページがありません"),
+                        translate(
+                            "Worker",
+                            "PDFに保存できるページがありません。Officeファイルを含む場合は、Microsoft Officeが正しくインストールされ、対象ファイルを開けることを確認してください。",
+                        ),
                     )
                     return
                 final_doc.save(output_path, garbage=4, deflate=True, clean=True)
@@ -1261,22 +1268,24 @@ class AppWorker(QRunnable):
                     saved_doc.close()
                 except Exception as e:
                     _debug_log(f"[ROTATION DEBUG] 保存後の確認エラー: {e}")
-                self.signals.progress.emit(100, "保存完了")
-                message = f"PDFを正常に保存しました:\n{output_path}"
+                self.signals.progress.emit(100, translate("Worker", "保存完了"))
+                message = translate(
+                    "Worker", "PDFを保存しました:\n{path}"
+                ).format(path=output_path)
                 if failed_office_conversions:
                     skipped_files = "\n".join(
-                        f"・{file_name}（{app_name}）"
+                        translate("Worker", "・{file}（{app}）").format(
+                            file=file_name, app=app_name
+                        )
                         for app_name, file_name in failed_office_conversions
                     )
-                    message += (
-                        "\n\n"
-                        "ただし、以下のOfficeファイルは変換に失敗したためスキップしました:\n"
-                        f"{skipped_files}\n\n"
-                        "Microsoft Officeがインストールされているか、対象ファイルをOfficeで開けるか確認してください。"
-                    )
+                    message += translate(
+                        "Worker",
+                        "\n\n次のOfficeファイルは変換に失敗したため除外しました:\n{files}\n\nMicrosoft Officeがインストールされ、対象ファイルを開けることを確認してください。",
+                    ).format(files=skipped_files)
                 self.signals.finished.emit(
                     self.task_name,
-                    "保存完了",
+                    translate("Worker", "保存完了"),
                     message,
                 )
 
@@ -1302,12 +1311,11 @@ class AppWorker(QRunnable):
         if not win32com:
             if not suppress_errors:
                 self.signals.error.emit(
-                    "Officeファイル処理に必要なコンポーネントが見つかりません",
-                    "Officeファイルを処理するために必要なpywin32パッケージが見つかりません。\n\n"
-                    "解決方法:\n"
-                    "・以下のコマンドでpywin32をインストールしてください:\n"
-                    "  pip install pywin32\n"
-                    "・インストール後、アプリケーションを再起動してください",
+                    translate("Worker", "Office変換機能を利用できません"),
+                    translate(
+                        "Worker",
+                        "Officeファイルの変換に必要なコンポーネントが見つかりません。アプリケーションを再インストールしてください。",
+                    ),
                 )
             return None, None
 
@@ -1331,15 +1339,17 @@ class AppWorker(QRunnable):
             except Exception as e:
                 if not suppress_errors:
                     self.signals.error.emit(
-                        f"{app_name}アプリケーションの起動に失敗しました",
-                        f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
-                        f"エラー詳細: {e}\n\n"
-                        "考えられる原因:\n"
-                        f"・{app_name}がインストールされていない\n"
-                        f"・{app_name}アプリケーションが他のプロセスで使用されている\n\n"
-                        "解決方法:\n"
-                        f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
-                        f"・{app_name}アプリケーションをすべて閉じてから再試行してください",
+                        translate("Worker", "{app}を起動できません").format(
+                            app=app_name
+                        ),
+                        translate(
+                            "Worker",
+                            "'{name}'を変換できませんでした。Microsoft {app}が正しくインストールされていることを確認し、{app}をすべて閉じてから再試行してください。\n\nエラー詳細: {error}",
+                        ).format(
+                            name=os.path.basename(office_path),
+                            app=app_name,
+                            error=e,
+                        ),
                     )
                 return None, None
 
@@ -1377,19 +1387,17 @@ class AppWorker(QRunnable):
                     pass
             if not suppress_errors:
                 self.signals.error.emit(
-                    f"{app_name}ファイルの変換に失敗しました",
-                    f"'{os.path.basename(office_path)}' の変換に失敗しました。\n\n"
-                    f"エラー詳細: {e}\n\n"
-                    "考えられる原因:\n"
-                    f"・{app_name}がインストールされていない\n"
-                    f"・{app_name}アプリケーションが他のプロセスで使用されている\n"
-                    "・ファイルが破損している\n"
-                    "・ファイルがパスワードで保護されている\n\n"
-                    "解決方法:\n"
-                    f"・Microsoft {app_name}が正しくインストールされているか確認してください\n"
-                    f"・{app_name}アプリケーションをすべて閉じてから再試行してください\n"
-                    "・ファイルが正常に開けるか確認してください\n"
-                    "・ファイルがパスワード保護されていないか確認してください",
+                    translate("Worker", "{app}ファイルを変換できません").format(
+                        app=app_name
+                    ),
+                    translate(
+                        "Worker",
+                        "'{name}'を変換できませんでした。Microsoft {app}でファイルを開けること、破損やパスワード保護がないことを確認してください。\n\nエラー詳細: {error}",
+                    ).format(
+                        name=os.path.basename(office_path),
+                        app=app_name,
+                        error=e,
+                    ),
                 )
             return None, app
         finally:
@@ -2031,16 +2039,20 @@ class AppWorker(QRunnable):
                 os.makedirs(output_dir, exist_ok=True)
             except Exception as e:
                 self.signals.error.emit(
-                    "出力ディレクトリを作成できませんでした",
-                    f"出力ディレクトリ '{output_dir}' を作成できませんでした。\n\n"
-                    f"エラー詳細: {e}",
+                    translate("Worker", "保存先フォルダーを作成できません"),
+                    translate(
+                        "Worker",
+                        "保存先フォルダー'{path}'を作成できませんでした。\n\nエラー詳細: {error}",
+                    ).format(path=output_dir, error=e),
                 )
                 return
 
         if not os.access(output_dir, os.W_OK):
             self.signals.error.emit(
-                "保存先に書き込めません",
-                f"出力ディレクトリ '{output_dir}' に書き込む権限がありません。",
+                translate("Worker", "保存先に書き込めません"),
+                translate(
+                    "Worker", "保存先フォルダー'{path}'に書き込む権限がありません。"
+                ).format(path=output_dir),
             )
             return
 
@@ -2104,8 +2116,11 @@ class AppWorker(QRunnable):
                         )
         except Exception as e:
             self.signals.error.emit(
-                "Officeファイルの変換に失敗しました",
-                f"Officeファイルの変換中にエラーが発生しました。\n\nエラー詳細: {e}",
+                translate("Worker", "Officeファイルを変換できません"),
+                translate(
+                    "Worker",
+                    "Officeファイルの変換中にエラーが発生しました。\n\nエラー詳細: {error}",
+                ).format(error=e),
             )
             return
 
@@ -2124,7 +2139,9 @@ class AppWorker(QRunnable):
 
                 self.signals.progress.emit(
                     int((idx / len(all_items)) * 100),
-                    f"画像変換中: {os.path.basename(item.get('original_path', ''))}",
+                    translate("Worker", "画像に変換中: {name}").format(
+                        name=os.path.basename(item.get("original_path", ""))
+                    ),
                 )
 
                 item_type = item.get("type")
@@ -2187,9 +2204,11 @@ class AppWorker(QRunnable):
 
                 except Exception as e:
                     self.signals.error.emit(
-                        "画像変換エラー",
-                        f"'{os.path.basename(original_path)}' の画像変換に失敗しました。\n\n"
-                        f"エラー詳細: {e}",
+                        translate("Worker", "画像に変換できません"),
+                        translate(
+                            "Worker",
+                            "'{name}'を画像に変換できませんでした。\n\nエラー詳細: {error}",
+                        ).format(name=os.path.basename(original_path), error=e),
                     )
                     continue
 
@@ -2203,11 +2222,15 @@ class AppWorker(QRunnable):
                     print(f"一時ファイルの削除に失敗: {temp_f}, エラー: {e}")
 
         if self.is_running:
-            self.signals.progress.emit(100, "画像書き出し完了")
+            self.signals.progress.emit(
+                100, translate("Worker", "画像の書き出しが完了しました")
+            )
             self.signals.finished.emit(
                 self.task_name,
-                "完了",
-                f"画像を正常に書き出しました:\n{output_dir}",
+                translate("Worker", "完了"),
+                translate("Worker", "画像を書き出しました:\n{path}").format(
+                    path=output_dir
+                ),
             )
 
 
@@ -2216,7 +2239,7 @@ class HeaderFooterSettingsDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("ヘッダー・フッターの設定")
+        self.setWindowTitle(translate("HeaderFooterDialog", "ヘッダーとフッターの設定"))
         self.setMinimumWidth(500)
         self.setup_ui()
 
@@ -2224,7 +2247,9 @@ class HeaderFooterSettingsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # ヘッダーを追加するかどうか
-        self.header_enable_checkbox = QCheckBox("ヘッダーを追加する")
+        self.header_enable_checkbox = QCheckBox(
+            translate("HeaderFooterDialog", "ヘッダーを追加")
+        )
         self.header_enable_checkbox.setChecked(False)
         layout.addWidget(self.header_enable_checkbox)
 
@@ -2234,39 +2259,54 @@ class HeaderFooterSettingsDialog(QDialog):
 
         # ヘッダー左
         header_left_layout = QHBoxLayout()
-        header_left_layout.addWidget(QLabel("左:"))
+        header_left_layout.addWidget(QLabel(translate("HeaderFooterDialog", "左:")))
         self.header_left_text = QLineEdit()
-        self.header_left_text.setPlaceholderText("例: ○○市役所")
+        self.header_left_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: ○○市役所")
+        )
         header_left_layout.addWidget(self.header_left_text)
         header_layout.addLayout(header_left_layout)
 
         # ヘッダー中央
         header_center_layout = QHBoxLayout()
-        header_center_layout.addWidget(QLabel("中央:"))
+        header_center_layout.addWidget(QLabel(translate("HeaderFooterDialog", "中央:")))
         self.header_center_text = QLineEdit()
-        self.header_center_text.setPlaceholderText("例: 文書名")
+        self.header_center_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: 文書名")
+        )
         header_center_layout.addWidget(self.header_center_text)
         header_layout.addLayout(header_center_layout)
 
         # ヘッダー右
         header_right_layout = QHBoxLayout()
-        header_right_layout.addWidget(QLabel("右:"))
+        header_right_layout.addWidget(QLabel(translate("HeaderFooterDialog", "右:")))
         self.header_right_text = QLineEdit()
-        self.header_right_text.setPlaceholderText("例: 令和○年○月○日")
+        self.header_right_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: 令和○年○月○日")
+        )
         header_right_layout.addWidget(self.header_right_text)
         header_layout.addLayout(header_right_layout)
 
         # 日付を自動挿入（ヘッダー右）
-        self.header_date_checkbox = QCheckBox("右側に現在の日付を自動挿入")
+        self.header_date_checkbox = QCheckBox(
+            translate("HeaderFooterDialog", "右側に現在の日付を自動挿入")
+        )
         self.header_date_checkbox.setChecked(False)
         header_layout.addWidget(self.header_date_checkbox)
 
         # ページ番号を自動挿入（ヘッダー）
         page_number_header_layout = QHBoxLayout()
-        page_number_header_layout.addWidget(QLabel("ページ番号を自動挿入:"))
+        page_number_header_layout.addWidget(
+            QLabel(translate("HeaderFooterDialog", "ページ番号を自動挿入:"))
+        )
         self.header_page_number_position_combo = QComboBox()
-        self.header_page_number_position_combo.addItems(["なし", "左", "中央", "右"])
-        self.header_page_number_position_combo.setCurrentText("なし")
+        for text, value in (
+            (translate("HeaderFooterDialog", "なし"), None),
+            (translate("HeaderFooterDialog", "左"), "left"),
+            (translate("HeaderFooterDialog", "中央"), "center"),
+            (translate("HeaderFooterDialog", "右"), "right"),
+        ):
+            self.header_page_number_position_combo.addItem(text, value)
         page_number_header_layout.addWidget(self.header_page_number_position_combo)
         page_number_header_layout.addStretch()
         header_layout.addLayout(page_number_header_layout)
@@ -2279,7 +2319,9 @@ class HeaderFooterSettingsDialog(QDialog):
         layout.addWidget(QFrame())  # 区切り線の代わり
 
         # フッターを追加するかどうか
-        self.footer_enable_checkbox = QCheckBox("フッターを追加する")
+        self.footer_enable_checkbox = QCheckBox(
+            translate("HeaderFooterDialog", "フッターを追加")
+        )
         self.footer_enable_checkbox.setChecked(False)
         layout.addWidget(self.footer_enable_checkbox)
 
@@ -2289,39 +2331,54 @@ class HeaderFooterSettingsDialog(QDialog):
 
         # フッター左
         footer_left_layout = QHBoxLayout()
-        footer_left_layout.addWidget(QLabel("左:"))
+        footer_left_layout.addWidget(QLabel(translate("HeaderFooterDialog", "左:")))
         self.footer_left_text = QLineEdit()
-        self.footer_left_text.setPlaceholderText("例: ○○市役所")
+        self.footer_left_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: ○○市役所")
+        )
         footer_left_layout.addWidget(self.footer_left_text)
         footer_layout.addLayout(footer_left_layout)
 
         # フッター中央
         footer_center_layout = QHBoxLayout()
-        footer_center_layout.addWidget(QLabel("中央:"))
+        footer_center_layout.addWidget(QLabel(translate("HeaderFooterDialog", "中央:")))
         self.footer_center_text = QLineEdit()
-        self.footer_center_text.setPlaceholderText("例: 文書名")
+        self.footer_center_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: 文書名")
+        )
         footer_center_layout.addWidget(self.footer_center_text)
         footer_layout.addLayout(footer_center_layout)
 
         # フッター右
         footer_right_layout = QHBoxLayout()
-        footer_right_layout.addWidget(QLabel("右:"))
+        footer_right_layout.addWidget(QLabel(translate("HeaderFooterDialog", "右:")))
         self.footer_right_text = QLineEdit()
-        self.footer_right_text.setPlaceholderText("例: 令和○年○月○日")
+        self.footer_right_text.setPlaceholderText(
+            translate("HeaderFooterDialog", "例: 令和○年○月○日")
+        )
         footer_right_layout.addWidget(self.footer_right_text)
         footer_layout.addLayout(footer_right_layout)
 
         # 日付を自動挿入（フッター右）
-        self.footer_date_checkbox = QCheckBox("右側に現在の日付を自動挿入")
+        self.footer_date_checkbox = QCheckBox(
+            translate("HeaderFooterDialog", "右側に現在の日付を自動挿入")
+        )
         self.footer_date_checkbox.setChecked(False)
         footer_layout.addWidget(self.footer_date_checkbox)
 
         # ページ番号を自動挿入（フッター）
         page_number_footer_layout = QHBoxLayout()
-        page_number_footer_layout.addWidget(QLabel("ページ番号を自動挿入:"))
+        page_number_footer_layout.addWidget(
+            QLabel(translate("HeaderFooterDialog", "ページ番号を自動挿入:"))
+        )
         self.footer_page_number_position_combo = QComboBox()
-        self.footer_page_number_position_combo.addItems(["なし", "左", "中央", "右"])
-        self.footer_page_number_position_combo.setCurrentText("なし")
+        for text, value in (
+            (translate("HeaderFooterDialog", "なし"), None),
+            (translate("HeaderFooterDialog", "左"), "left"),
+            (translate("HeaderFooterDialog", "中央"), "center"),
+            (translate("HeaderFooterDialog", "右"), "right"),
+        ):
+            self.footer_page_number_position_combo.addItem(text, value)
         page_number_footer_layout.addWidget(self.footer_page_number_position_combo)
         page_number_footer_layout.addStretch()
         footer_layout.addLayout(page_number_footer_layout)
@@ -2333,7 +2390,9 @@ class HeaderFooterSettingsDialog(QDialog):
 
         # フォントサイズ
         font_size_layout = QHBoxLayout()
-        font_size_layout.addWidget(QLabel("フォントサイズ:"))
+        font_size_layout.addWidget(
+            QLabel(translate("HeaderFooterDialog", "フォントサイズ:"))
+        )
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setMinimum(6)
         self.font_size_spin.setMaximum(72)
@@ -2343,12 +2402,14 @@ class HeaderFooterSettingsDialog(QDialog):
         layout.addLayout(font_size_layout)
 
         # ページ番号設定
-        page_number_group = QGroupBox("ページ番号設定")
+        page_number_group = QGroupBox(
+            translate("HeaderFooterDialog", "ページ番号の設定")
+        )
         page_number_layout = QVBoxLayout(page_number_group)
 
         # 表示形式
         format_layout = QHBoxLayout()
-        format_layout.addWidget(QLabel("表示形式:"))
+        format_layout.addWidget(QLabel(translate("HeaderFooterDialog", "表示形式:")))
         self.page_number_format_combo = QComboBox()
         self.page_number_format_combo.addItems(["1", "1 / 10", "Page 1", "- 1 -"])
         format_layout.addWidget(self.page_number_format_combo)
@@ -2357,7 +2418,7 @@ class HeaderFooterSettingsDialog(QDialog):
 
         # 開始番号
         start_layout = QHBoxLayout()
-        start_layout.addWidget(QLabel("開始番号:"))
+        start_layout.addWidget(QLabel(translate("HeaderFooterDialog", "開始番号:")))
         self.page_number_start_spin = QSpinBox()
         self.page_number_start_spin.setMinimum(1)
         self.page_number_start_spin.setMaximum(9999)
@@ -2387,15 +2448,9 @@ class HeaderFooterSettingsDialog(QDialog):
         header_right = self.header_right_text.text()
         header_auto_date = self.header_date_checkbox.isChecked()
 
-        header_page_number_position = None
-        header_page_number_text = self.header_page_number_position_combo.currentText()
-        if header_page_number_text != "なし":
-            if header_page_number_text == "中央":
-                header_page_number_position = "center"
-            elif header_page_number_text == "右":
-                header_page_number_position = "right"
-            else:
-                header_page_number_position = "left"
+        header_page_number_position = (
+            self.header_page_number_position_combo.currentData()
+        )
 
         # フッターの設定
         footer_left = self.footer_left_text.text()
@@ -2403,15 +2458,9 @@ class HeaderFooterSettingsDialog(QDialog):
         footer_right = self.footer_right_text.text()
         footer_auto_date = self.footer_date_checkbox.isChecked()
 
-        footer_page_number_position = None
-        footer_page_number_text = self.footer_page_number_position_combo.currentText()
-        if footer_page_number_text != "なし":
-            if footer_page_number_text == "中央":
-                footer_page_number_position = "center"
-            elif footer_page_number_text == "右":
-                footer_page_number_position = "right"
-            else:
-                footer_page_number_position = "left"
+        footer_page_number_position = (
+            self.footer_page_number_position_combo.currentData()
+        )
 
         settings = {
             "header_enabled": header_enabled,
@@ -2460,14 +2509,8 @@ class HeaderFooterSettingsDialog(QDialog):
             self.header_right_text.setText(header.get("right", ""))
             self.header_date_checkbox.setChecked(header.get("auto_date", False))
             position = header.get("page_number_position")
-            if position == "center":
-                self.header_page_number_position_combo.setCurrentText("中央")
-            elif position == "right":
-                self.header_page_number_position_combo.setCurrentText("右")
-            elif position == "left":
-                self.header_page_number_position_combo.setCurrentText("左")
-            else:
-                self.header_page_number_position_combo.setCurrentText("なし")
+            index = self.header_page_number_position_combo.findData(position)
+            self.header_page_number_position_combo.setCurrentIndex(max(0, index))
 
         # フッター設定
         if "footer" in settings:
@@ -2477,14 +2520,8 @@ class HeaderFooterSettingsDialog(QDialog):
             self.footer_right_text.setText(footer.get("right", ""))
             self.footer_date_checkbox.setChecked(footer.get("auto_date", False))
             position = footer.get("page_number_position")
-            if position == "center":
-                self.footer_page_number_position_combo.setCurrentText("中央")
-            elif position == "right":
-                self.footer_page_number_position_combo.setCurrentText("右")
-            elif position == "left":
-                self.footer_page_number_position_combo.setCurrentText("左")
-            else:
-                self.footer_page_number_position_combo.setCurrentText("なし")
+            index = self.footer_page_number_position_combo.findData(position)
+            self.footer_page_number_position_combo.setCurrentIndex(max(0, index))
 
         # フォントサイズ
         self.font_size_spin.setValue(settings.get("font_size", 10))
@@ -2517,7 +2554,9 @@ class OfficePDFBinderApp(QMainWindow):
         super().__init__()
         window_title = "Office PDF Binder"
         if _is_restricted_portable_mode():
-            window_title += "（ポータブル版）"
+            window_title = translate(
+                "MainWindow", "Office PDF Binder（ポータブル版）"
+            )
         self.setWindowTitle(window_title)
         self.setWindowIcon(_get_app_icon())
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
@@ -2542,7 +2581,12 @@ class OfficePDFBinderApp(QMainWindow):
         # ヘッダー・フッター設定のデフォルト値
         self.header_footer_settings = None
         self.install_dir = _get_runtime_dir()
-        self.user_manual_path = os.path.join(self.install_dir, "README.html")
+        manual_filename = (
+            "README.en.html" if current_language() == "en" else "README.html"
+        )
+        self.user_manual_path = os.path.join(self.install_dir, manual_filename)
+        if not os.path.exists(self.user_manual_path):
+            self.user_manual_path = os.path.join(self.install_dir, "README.html")
         # IPC シグナルとハンドラを接続
         self.ipc_files_received.connect(self._add_files_from_paths)
         # ズームは約1.75倍刻みの5段階（最小約0.33〜最大約3.06）
@@ -2799,7 +2843,7 @@ class OfficePDFBinderApp(QMainWindow):
         self.status_bar.addWidget(self.selection_status_label)
 
         # --- しおりパネル ---
-        self.bookmark_dock = QDockWidget("しおり", self)
+        self.bookmark_dock = QDockWidget(translate("MainWindow", "しおり"), self)
         self.bookmark_dock.setObjectName("BookmarkDock")
         bookmark_widget = QWidget()
         bookmark_layout = QVBoxLayout(bookmark_widget)
@@ -2814,25 +2858,34 @@ class OfficePDFBinderApp(QMainWindow):
         bookmark_layout.addWidget(self.bookmark_tree)
 
         button_row = QHBoxLayout()
-        self.bookmark_add_button = QPushButton("追加")
-        self.bookmark_add_button.setToolTip("選択ページにしおりを追加")
+        self.bookmark_add_button = QPushButton(translate("MainWindow", "追加"))
+        self.bookmark_add_button.setToolTip(
+            translate("MainWindow", "選択したページにしおりを追加")
+        )
         self.bookmark_add_button.clicked.connect(self._add_bookmark_from_selection)
         button_row.addWidget(self.bookmark_add_button)
 
-        self.bookmark_rename_button = QPushButton("名前変更")
-        self.bookmark_rename_button.setToolTip("選択したしおりの名前を変更")
+        self.bookmark_rename_button = QPushButton(translate("MainWindow", "名前を変更"))
+        self.bookmark_rename_button.setToolTip(
+            translate("MainWindow", "選択したしおりの名前を変更")
+        )
         self.bookmark_rename_button.clicked.connect(self._rename_selected_bookmark)
         button_row.addWidget(self.bookmark_rename_button)
 
-        self.bookmark_delete_button = QPushButton("削除")
-        self.bookmark_delete_button.setToolTip("選択したしおりを削除")
+        self.bookmark_delete_button = QPushButton(translate("MainWindow", "削除"))
+        self.bookmark_delete_button.setToolTip(
+            translate("MainWindow", "選択したしおりを削除")
+        )
         self.bookmark_delete_button.clicked.connect(self._delete_selected_bookmark)
         button_row.addWidget(self.bookmark_delete_button)
 
         bookmark_layout.addLayout(button_row)
 
         info_label = QLabel(
-            "※自動しおりはメニューからON/OFFできます。自動しおりも削除・編集可能です（編集すると手動しおりに変換されます）。"
+            translate(
+                "MainWindow",
+                "自動しおりは設定メニューで切り替えられます。自動しおりを編集すると、手動しおりに変わります。",
+            )
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #bdc3c7; font-size: 9pt;")
@@ -2850,184 +2903,216 @@ class OfficePDFBinderApp(QMainWindow):
     def create_actions(self):
         # --- ファイル操作グループ ---
         self.add_action = QAction(
-            self.get_icon("fa5s.plus-circle", color="#2ecc71"), "ファイル\n追加", self
+            self.get_icon("fa5s.plus-circle", color="#2ecc71"),
+            translate("MainWindow", "ファイル\n追加"),
+            self,
         )
-        self.add_action.setToolTip("ファイル\n追加")
+        self.add_action.setToolTip(translate("MainWindow", "ファイルを追加"))
         self.add_action.triggered.connect(self._add_files)
 
         self.delete_action = QAction(
-            self.get_icon("fa5s.trash-alt", color="#e74c3c"), "選択項目\n削除", self
+            self.get_icon("fa5s.trash-alt", color="#e74c3c"),
+            translate("MainWindow", "選択項目を\n削除"),
+            self,
         )
-        self.delete_action.setToolTip("選択項目\n削除 (Delete)")
+        self.delete_action.setToolTip(
+            translate("MainWindow", "選択項目を削除 (Delete)")
+        )
         self.delete_action.setShortcut("Delete")
         self.delete_action.triggered.connect(self._delete_selected)
 
         # --- ページ編集グループ ---
         self.rot_left_action = QAction(
-            self.get_icon("fa5s.undo", color="#3498db"), "左へ90°\n回転", self
+            self.get_icon("fa5s.undo", color="#3498db"),
+            translate("MainWindow", "左へ90°\n回転"),
+            self,
         )
         self.rot_left_action.setToolTip(
-            "選択したPDFページを左に90度回転させます。\n複数のページを選択して一括で回転することもできます。"
+            translate(
+                "MainWindow",
+                "選択したPDFページを左へ90度回転します。複数のページもまとめて回転できます。",
+            )
         )
         self.rot_left_action.triggered.connect(lambda: self._rotate_selected(-90))
 
         self.rot_right_action = QAction(
-            self.get_icon("fa5s.redo", color="#3498db"), "右へ90°\n回転", self
+            self.get_icon("fa5s.redo", color="#3498db"),
+            translate("MainWindow", "右へ90°\n回転"),
+            self,
         )
         self.rot_right_action.setToolTip(
-            "選択したPDFページを右に90度回転させます。\n複数のページを選択して一括で回転することもできます。"
+            translate(
+                "MainWindow",
+                "選択したPDFページを右へ90度回転します。複数のページもまとめて回転できます。",
+            )
         )
         self.rot_right_action.triggered.connect(lambda: self._rotate_selected(90))
 
         self.move_to_top_action = QAction(
             self.get_icon("fa5s.angle-double-up", color="#f1c40f"),
-            "一番上へ\n移動",
+            translate("MainWindow", "一番上へ\n移動"),
             self,
         )
         self.move_to_top_action.setToolTip(
-            "選択したページをリストの一番上に移動します。\n複数のページを選択して一括で移動することもできます。"
+            translate("MainWindow", "選択したページを一番上へ移動します。")
         )
         self.move_to_top_action.triggered.connect(self._move_to_top)
 
         self.move_up_action = QAction(
-            self.get_icon("fa5s.arrow-up", color="#f1c40f"), "上へ\n移動", self
+            self.get_icon("fa5s.arrow-up", color="#f1c40f"),
+            translate("MainWindow", "上へ\n移動"),
+            self,
         )
         self.move_up_action.setToolTip(
-            "選択したページを1つ上に移動します。\n複数のページを選択して一括で移動することもできます。"
+            translate("MainWindow", "選択したページを1つ上へ移動します。")
         )
         self.move_up_action.triggered.connect(self._move_up)
 
         self.move_down_action = QAction(
-            self.get_icon("fa5s.arrow-down", color="#f1c40f"), "下へ\n移動", self
+            self.get_icon("fa5s.arrow-down", color="#f1c40f"),
+            translate("MainWindow", "下へ\n移動"),
+            self,
         )
         self.move_down_action.setToolTip(
-            "選択したページを1つ下に移動します。\n複数のページを選択して一括で移動することもできます。"
+            translate("MainWindow", "選択したページを1つ下へ移動します。")
         )
         self.move_down_action.triggered.connect(self._move_down)
 
         self.move_to_bottom_action = QAction(
             self.get_icon("fa5s.angle-double-down", color="#f1c40f"),
-            "一番下へ\n移動",
+            translate("MainWindow", "一番下へ\n移動"),
             self,
         )
         self.move_to_bottom_action.setToolTip(
-            "選択したページをリストの一番下に移動します。\n複数のページを選択して一括で移動することもできます。"
+            translate("MainWindow", "選択したページを一番下へ移動します。")
         )
         self.move_to_bottom_action.triggered.connect(self._move_to_bottom)
 
         # --- 保存とモード変更グループ ---
         self.merge_action = QAction(
-            self.get_icon("fa5s.save", color="#3498db"), "名前を付けて\n保存", self
+            self.get_icon("fa5s.save", color="#3498db"),
+            translate("MainWindow", "PDFに結合して\n保存"),
+            self,
         )
-        self.merge_action.setToolTip("名前を付けて保存")
+        self.merge_action.setToolTip(
+            translate("MainWindow", "ファイルとページを1つのPDFに結合して保存")
+        )
         self.merge_action.triggered.connect(self._merge_and_save)
 
-        self.about_action = QAction("アプリ情報(&I)", self)
-        self.about_action.setToolTip("このアプリケーションについての情報を表示します")
+        self.about_action = QAction(translate("MainWindow", "アプリ情報(&I)"), self)
+        self.about_action.setToolTip(
+            translate("MainWindow", "このアプリケーションの情報を表示")
+        )
         self.about_action.triggered.connect(self._show_about_dialog)
 
-        self.open_manual_action = QAction("マニュアル(&M)", self)
+        self.open_manual_action = QAction(translate("MainWindow", "マニュアル(&M)"), self)
         self.open_manual_action.setToolTip(
-            "ユーザーマニュアル (HTML) を既定のブラウザで開きます"
+            translate("MainWindow", "ユーザーマニュアルを既定のブラウザーで開く")
         )
         self.open_manual_action.triggered.connect(self._open_user_manual)
 
         # --- しおりパネルアクション ---
-        self.bookmark_panel_action = QAction("しおり(&B)", self)
+        self.bookmark_panel_action = QAction(translate("MainWindow", "しおり(&B)"), self)
         self.bookmark_panel_action.setCheckable(True)
         self.bookmark_panel_action.setChecked(False)
         self.bookmark_panel_action.triggered.connect(self._toggle_bookmark_panel)
 
         # --- メニュー用アクション（キーボードショートカット付き） ---
         # ファイルメニュー
-        self.new_action = QAction("新規(&N)", self)
+        self.new_action = QAction(translate("MainWindow", "新規(&N)"), self)
         self.new_action.setShortcut(QKeySequence.New)
-        self.new_action.setToolTip("新しいプロジェクトを開始")
+        self.new_action.setToolTip(translate("MainWindow", "新しい作業を開始"))
         self.new_action.triggered.connect(self._new_project)
 
-        self.open_action = QAction("ファイルを追加(&O)...", self)
+        self.open_action = QAction(translate("MainWindow", "ファイルを追加(&O)..."), self)
         self.open_action.setShortcut(QKeySequence.Open)
         self.open_action.setIcon(self.get_icon("fa5s.folder-open", color="#2ecc71"))
-        self.open_action.setToolTip("ファイルを追加")
+        self.open_action.setToolTip(translate("MainWindow", "ファイルを追加"))
         self.open_action.triggered.connect(self._add_files)
 
-        self.save_action = QAction("名前を付けて保存(&S)...", self)
+        self.save_action = QAction(translate("MainWindow", "名前を付けて保存(&S)..."), self)
         self.save_action.setShortcut(QKeySequence.Save)
         self.save_action.setIcon(self.get_icon("fa5s.save", color="#3498db"))
-        self.save_action.setToolTip("名前を付けて保存")
+        self.save_action.setToolTip(translate("MainWindow", "PDFに結合して名前を付けて保存"))
         self.save_action.triggered.connect(self._merge_and_save)
 
         self.export_selected_pdf_action = QAction(
-            "選択ページをPDFとして書き出し(&E)...", self
+            translate("MainWindow", "選択ページをPDFとして書き出し(&E)..."), self
         )
         self.export_selected_pdf_action.setToolTip(
-            "選択したページをPDFファイルとして書き出します"
+            translate("MainWindow", "選択したページをPDFファイルとして書き出す")
         )
         self.export_selected_pdf_action.triggered.connect(self._export_selected_as_pdf)
 
         self.export_selected_images_action = QAction(
-            "選択ページを画像として書き出し(&I)...", self
+            translate("MainWindow", "選択ページを画像として書き出し(&I)..."), self
         )
         self.export_selected_images_action.setToolTip(
-            "選択したページをJPEG画像として書き出します"
+            translate("MainWindow", "選択したページをJPEG画像として書き出す")
         )
         self.export_selected_images_action.triggered.connect(
             self._export_selected_as_images
         )
 
-        self.exit_action = QAction("終了(&X)", self)
+        self.exit_action = QAction(translate("MainWindow", "終了(&X)"), self)
         self.exit_action.setShortcut(QKeySequence.Quit)
-        self.exit_action.setToolTip("アプリケーションを終了")
+        self.exit_action.setToolTip(translate("MainWindow", "アプリケーションを終了"))
         self.exit_action.triggered.connect(self.close)
 
         # 編集メニュー
-        self.undo_action = QAction("元に戻す(&U)", self)
+        self.undo_action = QAction(translate("MainWindow", "元に戻す(&U)"), self)
         self.undo_action.setShortcut(QKeySequence.Undo)
-        self.undo_action.setToolTip("操作を元に戻す")
+        self.undo_action.setToolTip(translate("MainWindow", "直前の操作を元に戻す"))
         self.undo_action.setEnabled(False)
         self.undo_action.triggered.connect(self._undo)
 
-        self.redo_action = QAction("やり直す(&R)", self)
+        self.redo_action = QAction(translate("MainWindow", "やり直す(&R)"), self)
         self.redo_action.setShortcut(QKeySequence.Redo)
-        self.redo_action.setToolTip("操作をやり直す")
+        self.redo_action.setToolTip(translate("MainWindow", "元に戻した操作をやり直す"))
         self.redo_action.setEnabled(False)
         self.redo_action.triggered.connect(self._redo)
 
-        self.select_all_action = QAction("すべて選択(&A)", self)
+        self.select_all_action = QAction(translate("MainWindow", "すべて選択(&A)"), self)
         self.select_all_action.setShortcut(QKeySequence.SelectAll)
-        self.select_all_action.setToolTip("すべてのアイテムを選択")
+        self.select_all_action.setToolTip(translate("MainWindow", "すべての項目を選択"))
         self.select_all_action.triggered.connect(self._select_all)
 
         # 表示メニュー
-        self.zoom_in_action = QAction("拡大(&I)", self)
+        self.zoom_in_action = QAction(translate("MainWindow", "拡大(&I)"), self)
         self.zoom_in_action.setShortcut(QKeySequence.ZoomIn)
-        self.zoom_in_action.setToolTip("表示を拡大 (Ctrl++)")
+        self.zoom_in_action.setToolTip(translate("MainWindow", "表示を拡大 (Ctrl++)"))
         self.zoom_in_action.triggered.connect(self._zoom_in)
 
-        self.zoom_out_action = QAction("縮小(&O)", self)
+        self.zoom_out_action = QAction(translate("MainWindow", "縮小(&O)"), self)
         self.zoom_out_action.setShortcut(QKeySequence.ZoomOut)
-        self.zoom_out_action.setToolTip("表示を縮小 (Ctrl+-)")
+        self.zoom_out_action.setToolTip(translate("MainWindow", "表示を縮小 (Ctrl+-)"))
         self.zoom_out_action.triggered.connect(self._zoom_out)
 
-        self.zoom_fit_action = QAction("表示サイズに合わせる(&F)", self)
+        self.zoom_fit_action = QAction(translate("MainWindow", "ウィンドウに合わせる(&F)"), self)
         self.zoom_fit_action.setShortcut("Ctrl+0")
-        self.zoom_fit_action.setToolTip("表示サイズに合わせる (Ctrl+0)")
+        self.zoom_fit_action.setToolTip(
+            translate("MainWindow", "ウィンドウに合わせる (Ctrl+0)")
+        )
         self.zoom_fit_action.triggered.connect(self._zoom_fit)
 
         # ブックマーク設定
-        self.auto_bookmark_action = QAction("ファイルごとに自動しおり", self)
+        self.auto_bookmark_action = QAction(
+            translate("MainWindow", "ファイルごとにしおりを自動作成"), self
+        )
         self.auto_bookmark_action.setCheckable(True)
         self.auto_bookmark_action.setChecked(self.auto_bookmarks_enabled)
         self.auto_bookmark_action.setToolTip(
-            "ファイルの先頭ページに自動でしおりを追加します"
+            translate("MainWindow", "各ファイルの先頭ページにしおりを自動作成")
         )
         self.auto_bookmark_action.triggered.connect(self._toggle_auto_bookmarks)
 
-        self.show_outline_on_open_action = QAction("PDF閲覧時にしおりを自動表示", self)
+        self.show_outline_on_open_action = QAction(
+            translate("MainWindow", "保存したPDFを開くときにしおりを表示"), self
+        )
         self.show_outline_on_open_action.setCheckable(True)
         self.show_outline_on_open_action.setChecked(self.show_bookmarks_on_open)
         self.show_outline_on_open_action.setToolTip(
-            "結合後のPDFをビューアで開く際に、しおりペインを自動で表示します"
+            translate("MainWindow", "保存したPDFを開くときにしおりパネルを表示")
         )
         self.show_outline_on_open_action.triggered.connect(
             self._toggle_show_bookmarks_on_open
@@ -3035,18 +3120,18 @@ class OfficePDFBinderApp(QMainWindow):
 
         # ヘッダー・フッター設定
         self.header_footer_settings_action = QAction(
-            "ヘッダー・フッター設定(&H)...", self
+            translate("MainWindow", "ヘッダーとフッター(&H)..."), self
         )
         self.header_footer_settings_action.setShortcut("Ctrl+H")
         self.header_footer_settings_action.setToolTip(
-            "ヘッダー・フッターの設定を行います (Ctrl+H)"
+            translate("MainWindow", "ヘッダーとフッターを設定 (Ctrl+H)")
         )
         self.header_footer_settings_action.triggered.connect(
             self._show_header_footer_settings
         )
 
     def create_toolbar(self):
-        toolbar = QToolBar("メインツールバー")
+        toolbar = QToolBar(translate("MainWindow", "メインツールバー"))
         toolbar.setIconSize(QSize(22, 22))
         toolbar.setMovable(False)
         toolbar.setFloatable(False)
@@ -3095,7 +3180,7 @@ class OfficePDFBinderApp(QMainWindow):
         menubar = QMenuBar()
 
         # ファイルメニュー
-        file_menu = menubar.addMenu("ファイル(&F)")
+        file_menu = menubar.addMenu(translate("MainWindow", "ファイル(&F)"))
         file_menu.addAction(self.new_action)
         file_menu.addAction(self.open_action)
         file_menu.addSeparator()
@@ -3107,7 +3192,7 @@ class OfficePDFBinderApp(QMainWindow):
         file_menu.addAction(self.exit_action)
 
         # 編集メニュー
-        edit_menu = menubar.addMenu("編集(&E)")
+        edit_menu = menubar.addMenu(translate("MainWindow", "編集(&E)"))
         edit_menu.addAction(self.undo_action)
         edit_menu.addAction(self.redo_action)
         edit_menu.addSeparator()
@@ -3116,7 +3201,7 @@ class OfficePDFBinderApp(QMainWindow):
         edit_menu.addAction(self.delete_action)
         edit_menu.addSeparator()
         # ページ操作サブメニュー
-        page_ops_menu = edit_menu.addMenu("ページ操作(&P)")
+        page_ops_menu = edit_menu.addMenu(translate("MainWindow", "ページを整理(&P)"))
         page_ops_menu.addAction(self.move_to_top_action)
         page_ops_menu.addAction(self.move_up_action)
         page_ops_menu.addAction(self.move_down_action)
@@ -3126,7 +3211,7 @@ class OfficePDFBinderApp(QMainWindow):
         page_ops_menu.addAction(self.rot_right_action)
 
         # 表示メニュー
-        view_menu = menubar.addMenu("表示(&V)")
+        view_menu = menubar.addMenu(translate("MainWindow", "表示(&V)"))
         view_menu.addAction(self.zoom_in_action)
         view_menu.addAction(self.zoom_out_action)
         view_menu.addAction(self.zoom_fit_action)
@@ -3134,7 +3219,7 @@ class OfficePDFBinderApp(QMainWindow):
         view_menu.addAction(self.bookmark_panel_action)
 
         # 設定メニュー
-        settings_menu = menubar.addMenu("設定(&S)")
+        settings_menu = menubar.addMenu(translate("MainWindow", "設定(&S)"))
         settings_menu.addAction(self.auto_bookmark_action)
         settings_menu.addAction(self.show_outline_on_open_action)
         settings_menu.addSeparator()
@@ -3165,7 +3250,11 @@ class OfficePDFBinderApp(QMainWindow):
                 f"[DEBUG] _run_task: task_name={task_name} を開始しようとしたが、"
                 "既に別のタスクが実行中のためキャンセルしました。"
             )
-            QMessageBox.warning(self, "処理中", "現在別の処理を実行中です。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "処理中"),
+                translate("MainWindow", "別の処理を実行中です。"),
+            )
             return
         self.current_worker = AppWorker(task_name, **kwargs)
         self.setup_progress_dialog(user_facing_name)
@@ -3205,14 +3294,16 @@ class OfficePDFBinderApp(QMainWindow):
                 new_paths.append(path)
 
         if duplicate_paths:
-            msg = "以下のファイルは既に追加されています:\n\n" + "\n".join(
-                duplicate_paths
-            )
+            msg = translate(
+                "MainWindow", "次のファイルは既に追加されています:\n\n"
+            ) + "\n".join(duplicate_paths)
             if new_paths:
-                msg += f"\n\n{len(new_paths)}個の新しいファイルを追加します。"
+                msg += translate(
+                    "MainWindow", "\n\n新しいファイルを{count}個追加します。"
+                ).format(count=len(new_paths))
                 reply = QMessageBox.question(
                     self,
-                    "重複ファイル",
+                    translate("MainWindow", "重複ファイル"),
                     msg,
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.Yes,
@@ -3220,15 +3311,23 @@ class OfficePDFBinderApp(QMainWindow):
                 if reply == QMessageBox.StandardButton.No:
                     return []
             else:
-                QMessageBox.information(self, "重複ファイル", msg)
+                QMessageBox.information(
+                    self, translate("MainWindow", "重複ファイル"), msg
+                )
                 return []
 
         return new_paths
 
     def _add_files(self):
-        file_dialog_filter = "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm);;All Files (*)"
+        file_dialog_filter = translate(
+            "MainWindow",
+            "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm);;すべてのファイル (*)",
+        )
         file_paths, _ = QFileDialog.getOpenFileNames(
-            self, "ファイルを選択", self.last_used_path, file_dialog_filter
+            self,
+            translate("MainWindow", "ファイルを選択"),
+            self.last_used_path,
+            file_dialog_filter,
         )
 
         if file_paths:
@@ -3236,7 +3335,11 @@ class OfficePDFBinderApp(QMainWindow):
             file_paths = self._check_duplicate_files(file_paths)
         if file_paths:
             self.last_used_path = os.path.dirname(file_paths[0])
-            self._run_task("add_files", "ファイルを追加", file_paths=file_paths)
+            self._run_task(
+                "add_files",
+                translate("MainWindow", "ファイルを追加"),
+                file_paths=file_paths,
+            )
 
     def _handle_dropped_files(self, file_paths):
         """ドロップされたファイルを処理する"""
@@ -3246,7 +3349,11 @@ class OfficePDFBinderApp(QMainWindow):
             if file_paths:
                 # 最初のファイルのディレクトリをlast_used_pathに設定
                 self.last_used_path = os.path.dirname(file_paths[0])
-                self._run_task("add_files", "ファイルを追加", file_paths=file_paths)
+                self._run_task(
+                    "add_files",
+                    translate("MainWindow", "ファイルを追加"),
+                    file_paths=file_paths,
+                )
 
     def _flush_ipc_pending_files(self):
         """IPC経由で一時バッファしたファイルを自然順でまとめて追加する"""
@@ -3303,7 +3410,11 @@ class OfficePDFBinderApp(QMainWindow):
 
         # 最初のファイルのディレクトリをlast_used_pathに設定
         self.last_used_path = os.path.dirname(pending[0])
-        self._run_task("add_files", "ファイルを追加", file_paths=pending)
+        self._run_task(
+            "add_files",
+            translate("MainWindow", "ファイルを追加"),
+            file_paths=pending,
+        )
 
     def _add_files_from_paths(self, file_paths):
         """コマンドライン引数からファイルパスを受け取って追加する"""
@@ -4141,8 +4252,8 @@ class OfficePDFBinderApp(QMainWindow):
             return
         reply = QMessageBox.question(
             self,
-            "新規プロジェクト",
-            "現在のプロジェクトをクリアして新規プロジェクトを開始しますか？",
+            translate("MainWindow", "新規作成"),
+            translate("MainWindow", "現在の一覧をクリアして新しく開始しますか？"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -4168,8 +4279,10 @@ class OfficePDFBinderApp(QMainWindow):
         if (
             QMessageBox.question(
                 self,
-                "確認",
-                f"{len(self.page_list_widget.selectedItems())}個のアイテムを削除しますか？",
+                translate("MainWindow", "削除の確認"),
+                translate("MainWindow", "選択した項目を{count}個削除しますか？").format(
+                    count=len(self.page_list_widget.selectedItems())
+                ),
             )
             == QMessageBox.StandardButton.Yes
         ):
@@ -4218,11 +4331,19 @@ class OfficePDFBinderApp(QMainWindow):
             else:
                 QMessageBox.warning(
                     self,
-                    "ファイルエラー",
-                    f"ファイルが見つかりません:\n{original_path}",
+                    translate("MainWindow", "ファイルが見つかりません"),
+                    translate("MainWindow", "ファイルが見つかりません:\n{path}").format(
+                        path=original_path
+                    ),
                 )
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"ファイルを開けませんでした:\n{e}")
+            QMessageBox.critical(
+                self,
+                translate("MainWindow", "エラー"),
+                translate("MainWindow", "ファイルを開けませんでした:\n{error}").format(
+                    error=e
+                ),
+            )
 
     def _open_user_manual(self):
         """配布物に含まれるユーザーマニュアルHTMLを既定ブラウザで開く"""
@@ -4231,8 +4352,10 @@ class OfficePDFBinderApp(QMainWindow):
         else:
             QMessageBox.warning(
                 self,
-                "ユーザーマニュアル",
-                f"ユーザーマニュアルが見つかりませんでした。\n{self.user_manual_path}",
+                translate("MainWindow", "ユーザーマニュアル"),
+                translate(
+                    "MainWindow", "ユーザーマニュアルが見つかりません。\n{path}"
+                ).format(path=self.user_manual_path),
             )
 
     def _move_items(self, direction):
@@ -4508,7 +4631,7 @@ class OfficePDFBinderApp(QMainWindow):
     def _format_bookmark_title(self, item_data, include_page=True):
         """設定に応じたしおりタイトルを生成"""
         if not item_data:
-            return "無題"
+            return translate("MainWindow", "無題")
         base = os.path.splitext(os.path.basename(item_data["original_path"]))[0]
         if include_page and item_data.get("type") == "pdf":
             page_num = item_data.get("page_num", 0)
@@ -4711,7 +4834,11 @@ class OfficePDFBinderApp(QMainWindow):
 
     def _merge_and_save(self):
         if self.page_list_widget.count() == 0:
-            QMessageBox.warning(self, "警告", "結合するアイテムがありません。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "保存できません"),
+                translate("MainWindow", "結合するファイルまたはページがありません。"),
+            )
             return
 
         # 保存済みのヘッダー・フッター設定を使用
@@ -4752,7 +4879,10 @@ class OfficePDFBinderApp(QMainWindow):
             header_footer_settings["page_number_start"] = page_number_start
 
         output_path, _ = QFileDialog.getSaveFileName(
-            self, "名前を付けて保存", self.last_used_path, "PDF Files (*.pdf)"
+            self,
+            translate("MainWindow", "名前を付けて保存"),
+            self.last_used_path,
+            translate("MainWindow", "PDFファイル (*.pdf)"),
         )
 
         if not output_path:
@@ -4767,7 +4897,7 @@ class OfficePDFBinderApp(QMainWindow):
         bookmarks_export = self._prepare_bookmarks_for_export(items_data)
         self._run_task(
             "merge_save",
-            "名前を付けて保存",
+            translate("MainWindow", "PDFを結合して保存"),
             items_data=items_data,
             output_path=output_path,
             bookmarks=bookmarks_export,
@@ -4785,7 +4915,9 @@ class OfficePDFBinderApp(QMainWindow):
                 continue
             export.append(
                 {
-                    "title": bookmark.get("title", "無題"),
+                    "title": bookmark.get(
+                        "title", translate("MainWindow", "無題")
+                    ),
                     "path": path,
                     "page_num": bookmark.get("page_num", 0),
                 }
@@ -4797,7 +4929,9 @@ class OfficePDFBinderApp(QMainWindow):
         selected_items = self.page_list_widget.selectedItems()
         if not selected_items:
             QMessageBox.information(
-                self, "書き出し", "書き出すページを選択してください。"
+                self,
+                translate("MainWindow", "書き出し"),
+                translate("MainWindow", "書き出すページを選択してください。"),
             )
             return
 
@@ -4811,9 +4945,9 @@ class OfficePDFBinderApp(QMainWindow):
         default_filename = f"exported_{len(items_data)}pages.pdf"
         output_path, _ = QFileDialog.getSaveFileName(
             self,
-            "選択ページをPDFとして保存",
+            translate("MainWindow", "選択ページをPDFとして保存"),
             os.path.join(self.last_used_path, default_filename),
-            "PDF Files (*.pdf)",
+            translate("MainWindow", "PDFファイル (*.pdf)"),
         )
 
         if not output_path:
@@ -4835,7 +4969,9 @@ class OfficePDFBinderApp(QMainWindow):
                 ):
                     bookmarks_export.append(
                         {
-                            "title": bookmark.get("title", "無題"),
+                            "title": bookmark.get(
+                                "title", translate("MainWindow", "無題")
+                            ),
                             "path": bookmark_path,
                             "page_num": bookmark_page,
                         }
@@ -4881,7 +5017,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self._run_task(
             "merge_save",
-            "選択ページをPDFとして書き出し",
+            translate("MainWindow", "選択ページをPDFとして書き出し"),
             items_data=items_data,
             output_path=output_path,
             bookmarks=bookmarks_export if bookmarks_export else None,
@@ -4921,19 +5057,11 @@ class OfficePDFBinderApp(QMainWindow):
             is_header = self.page_number_settings.get("is_header", False)
             alignment = self.page_number_settings.get("alignment", "center")
             if is_header:
-                if alignment == "center":
-                    dialog.header_page_number_position_combo.setCurrentText("中央")
-                elif alignment == "right":
-                    dialog.header_page_number_position_combo.setCurrentText("右")
-                else:
-                    dialog.header_page_number_position_combo.setCurrentText("左")
+                index = dialog.header_page_number_position_combo.findData(alignment)
+                dialog.header_page_number_position_combo.setCurrentIndex(max(0, index))
             else:
-                if alignment == "center":
-                    dialog.footer_page_number_position_combo.setCurrentText("中央")
-                elif alignment == "right":
-                    dialog.footer_page_number_position_combo.setCurrentText("右")
-                else:
-                    dialog.footer_page_number_position_combo.setCurrentText("左")
+                index = dialog.footer_page_number_position_combo.findData(alignment)
+                dialog.footer_page_number_position_combo.setCurrentIndex(max(0, index))
 
             dialog.page_number_format_combo.setCurrentText(
                 self.page_number_settings.get("format", "1")
@@ -4985,14 +5113,16 @@ class OfficePDFBinderApp(QMainWindow):
         selected_items = self.page_list_widget.selectedItems()
         if not selected_items:
             QMessageBox.information(
-                self, "書き出し", "書き出すページを選択してください。"
+                self,
+                translate("MainWindow", "書き出し"),
+                translate("MainWindow", "書き出すページを選択してください。"),
             )
             return
 
         # 保存先フォルダを選択
         output_dir = QFileDialog.getExistingDirectory(
             self,
-            "画像の保存先フォルダを選択",
+            translate("MainWindow", "画像の保存先フォルダーを選択"),
             self.last_used_path,
         )
 
@@ -5015,9 +5145,11 @@ class OfficePDFBinderApp(QMainWindow):
             # すべて Office など PDF 以外の場合は何もしない
             QMessageBox.information(
                 self,
-                "書き出し",
-                "画像として書き出せるのは PDF ページのみです。\n"
-                "Word / Excel / PowerPoint などは対象外です。",
+                translate("MainWindow", "書き出し"),
+                translate(
+                    "MainWindow",
+                    "画像として書き出せるのはPDFページのみです。\nWord、Excel、PowerPointファイルは対象外です。",
+                ),
             )
             return
 
@@ -5025,9 +5157,11 @@ class OfficePDFBinderApp(QMainWindow):
             # 混在している場合は PDF だけを書き出すことを通知
             QMessageBox.information(
                 self,
-                "書き出し",
-                "PDF 以外のファイルが含まれていますが、\n"
-                "画像として書き出されるのは PDF ページのみです。",
+                translate("MainWindow", "書き出し"),
+                translate(
+                    "MainWindow",
+                    "PDF以外のファイルは除外し、PDFページだけを画像として書き出します。",
+                ),
             )
 
         # 実際にワーカーへ渡すのは PDF ページのみ
@@ -5035,7 +5169,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self._run_task(
             "export_images",
-            "選択ページを画像として書き出し",
+            translate("MainWindow", "選択ページを画像として書き出し"),
             items_data=items_data,
             output_dir=output_dir,
             dpi=300,
@@ -5043,13 +5177,17 @@ class OfficePDFBinderApp(QMainWindow):
         )
 
     def setup_progress_dialog(self, user_facing_name):
-        title = f"{user_facing_name}しています..."
-        label = "準備しています..."
+        title = translate("MainWindow", "{operation}...").format(
+            operation=user_facing_name
+        )
+        label = translate("MainWindow", "準備しています...")
         _debug_log(
             f"[DEBUG] setup_progress_dialog: title='{title}', "
             f"label='{label}', activeThreadCount={self.threadpool.activeThreadCount()}"
         )
-        self.progress_dialog = QProgressDialog(label, "キャンセル", 0, 100, self)
+        self.progress_dialog = QProgressDialog(
+            label, translate("MainWindow", "キャンセル"), 0, 100, self
+        )
         self.progress_dialog.setWindowTitle(title)
         self.progress_dialog.setMinimumWidth(400)  # 単位はピクセルです
         self.progress_dialog.setWindowModality(Qt.WindowModal)
@@ -5062,7 +5200,9 @@ class OfficePDFBinderApp(QMainWindow):
         if self.current_worker:
             self.current_worker.is_running = False
         if self.progress_dialog:
-            self.progress_dialog.setLabelText("処理を中止しています...")
+            self.progress_dialog.setLabelText(
+                translate("MainWindow", "処理を中止しています...")
+            )
             self.progress_dialog.setCancelButton(None)
 
     def update_progress(self, value, message):
@@ -5110,10 +5250,12 @@ class OfficePDFBinderApp(QMainWindow):
                         "キュー分の add_files タスクを再実行します。"
                     )
                     self._run_task(
-                        "add_files", "ファイルを追加", file_paths=pending_files
+                        "add_files",
+                        translate("MainWindow", "ファイルを追加"),
+                        file_paths=pending_files,
                     )
         self.update_status_bar()
-        if task_name == "merge_save" and title == "保存完了":
+        if task_name == "merge_save":
             # メッセージから保存先パスを抽出
             # メッセージ形式: "PDFを正常に保存しました:\n{output_path}"
             output_path = None
@@ -5137,7 +5279,11 @@ class OfficePDFBinderApp(QMainWindow):
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setWindowTitle(title)
-            msg_box.setText(f"{message}\n\nリストをクリアしますか？")
+            msg_box.setText(
+                translate("MainWindow", "{message}\n\n一覧をクリアしますか？").format(
+                    message=message
+                )
+            )
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
@@ -5162,7 +5308,9 @@ class OfficePDFBinderApp(QMainWindow):
 
     def update_status_bar(self, force_page_mode=False):
         if self.page_list_widget.count() == 0:
-            self.file_status_label.setText("アイテムを追加してください")
+            self.file_status_label.setText(
+                translate("MainWindow", "ファイルを追加してください")
+            )
             self.selection_status_label.setText("")
         else:
             counts = {"pdf": 0, "word": 0, "excel": 0, "powerpoint": 0}
@@ -5176,15 +5324,33 @@ class OfficePDFBinderApp(QMainWindow):
                     unique_files.add(data["original_path"])
 
             status_parts = [
-                f"PDFページ: {counts['pdf']}" if counts["pdf"] > 0 else None,
-                f"Word: {counts['word']}" if counts["word"] > 0 else None,
-                f"Excel: {counts['excel']}" if counts["excel"] > 0 else None,
-                (f"PPT: {counts['powerpoint']}" if counts["powerpoint"] > 0 else None),
+                translate("MainWindow", "PDFページ: {count}").format(
+                    count=counts["pdf"]
+                )
+                if counts["pdf"] > 0
+                else None,
+                translate("MainWindow", "Word: {count}").format(
+                    count=counts["word"]
+                )
+                if counts["word"] > 0
+                else None,
+                translate("MainWindow", "Excel: {count}").format(
+                    count=counts["excel"]
+                )
+                if counts["excel"] > 0
+                else None,
+                translate("MainWindow", "PowerPoint: {count}").format(
+                    count=counts["powerpoint"]
+                )
+                if counts["powerpoint"] > 0
+                else None,
             ]
 
             file_info_text = " | ".join(filter(None, status_parts))
             selection_info_text = (
-                f"選択中: {len(self.page_list_widget.selectedItems())}件"
+                translate("MainWindow", "選択中: {count}件").format(
+                    count=len(self.page_list_widget.selectedItems())
+                )
             )
 
             self.file_status_label.setText(file_info_text)
@@ -5196,7 +5362,9 @@ class OfficePDFBinderApp(QMainWindow):
         if self.threadpool.activeThreadCount() > 0:
             if (
                 QMessageBox.question(
-                    self, "確認", "処理が実行中です。本当に終了しますか？"
+                    self,
+                    translate("MainWindow", "終了の確認"),
+                    translate("MainWindow", "処理を実行中です。終了しますか？"),
                 )
                 == QMessageBox.StandardButton.Yes
             ):
@@ -5213,7 +5381,9 @@ class OfficePDFBinderApp(QMainWindow):
         """アプリ情報とライセンス関連ファイルへのアクセスを提供するカスタムダイアログ"""
 
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"アプリ情報 - {APP_NAME}")
+        dialog.setWindowTitle(
+            translate("AboutDialog", "アプリ情報 - {app}").format(app=APP_NAME)
+        )
         dialog.setMinimumWidth(450)
 
         layout = QVBoxLayout(dialog)
@@ -5229,14 +5399,20 @@ class OfficePDFBinderApp(QMainWindow):
 
         layout.addWidget(title_label)
 
-        version_label = QLabel(f"Version: {APP_VERSION}")
+        version_label = QLabel(
+            translate("AboutDialog", "バージョン: {version}").format(
+                version=APP_VERSION
+            )
+        )
         version_label.setAlignment(Qt.AlignRight)
 
         layout.addWidget(version_label)
 
         desc_label = QLabel(
-            "PDFおよびOfficeドキュメントを結合・編集するためのツールです。<br>"
-            "Copyright (C) 2026 Takeshi Kashiwagi"
+            translate(
+                "AboutDialog",
+                "PDFとOffice文書を1つのPDFに結合し、ページを整理するツールです。<br>Copyright (C) 2026 Takeshi Kashiwagi",
+            )
         )
         desc_label.setAlignment(Qt.AlignLeft)
         desc_label.setWordWrap(True)
@@ -5251,9 +5427,10 @@ class OfficePDFBinderApp(QMainWindow):
         layout.addWidget(line)
 
         license_info = QLabel(
-            "本ソフトウェアは <b>GNU AFFERO GENERAL PUBLIC LICENSE v3.0 (AGPL-3.0)</b> の下で提供されます。<br><br>"
-            "使用しているオープンソースライブラリおよび本ソフトウェア自体の"
-            "ライセンス条項、ソースコードは以下のボタンから確認できます。"
+            translate(
+                "AboutDialog",
+                "本ソフトウェアは<b>GNU AFFERO GENERAL PUBLIC LICENSE v3.0 (AGPL-3.0)</b>の下で提供されます。<br><br>ライセンス条項、サードパーティライセンス、ソースコードは以下から確認できます。",
+            )
         )
         license_info.setAlignment(Qt.AlignLeft)
         license_info.setWordWrap(True)
@@ -5266,15 +5443,21 @@ class OfficePDFBinderApp(QMainWindow):
         btn_layout = QVBoxLayout()
         btn_layout.setSpacing(5)
 
-        btn_license = QPushButton("使用許諾契約書 (AGPL-3.0) を表示")
+        btn_license = QPushButton(
+            translate("AboutDialog", "使用許諾契約書（AGPL-3.0）を表示")
+        )
         btn_license.setIcon(self.get_icon("fa5s.file-contract", "#f1c40f"))
         btn_license.clicked.connect(lambda: self._open_local_file("LICENSE.txt"))
 
-        btn_notice = QPushButton("サードパーティライセンス (NOTICE) を表示")
+        btn_notice = QPushButton(
+            translate("AboutDialog", "サードパーティライセンスを表示")
+        )
         btn_notice.setIcon(self.get_icon("fa5s.file-alt", "#f1c40f"))
         btn_notice.clicked.connect(lambda: self._open_local_file("NOTICE.txt"))
 
-        btn_source = QPushButton("ソースコード格納フォルダを開く")
+        btn_source = QPushButton(
+            translate("AboutDialog", "ソースコードの場所を開く")
+        )
         btn_source.setIcon(self.get_icon("fa5s.code", "#2ecc71"))
         btn_source.clicked.connect(lambda: self._open_file_folder("source.zip"))
 
@@ -5285,7 +5468,7 @@ class OfficePDFBinderApp(QMainWindow):
         layout.addLayout(btn_layout)
 
         layout.addSpacing(5)
-        close_btn = QPushButton("閉じる")
+        close_btn = QPushButton(translate("AboutDialog", "閉じる"))
         close_btn.clicked.connect(dialog.accept)
         layout.addWidget(close_btn)
 
@@ -5307,11 +5490,20 @@ class OfficePDFBinderApp(QMainWindow):
             else:
                 QMessageBox.warning(
                     self,
-                    "ファイル不明",
-                    f"'{filename}' が見つかりません。\nインストールフォルダを確認してください。",
+                    translate("MainWindow", "ファイルが見つかりません"),
+                    translate(
+                        "MainWindow",
+                        "'{filename}'が見つかりません。\nインストールフォルダーを確認してください。",
+                    ).format(filename=filename),
                 )
         except Exception as e:
-            QMessageBox.warning(self, "エラー", f"ファイルを開けませんでした:\n{e}")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "エラー"),
+                translate("MainWindow", "ファイルを開けませんでした:\n{error}").format(
+                    error=e
+                ),
+            )
 
     def _open_file_folder(self, filename):
         """指定したファイルが選択された状態でエクスプローラーを開く"""
@@ -5329,11 +5521,20 @@ class OfficePDFBinderApp(QMainWindow):
             else:
                 QMessageBox.warning(
                     self,
-                    "ファイル不明",
-                    f"'{filename}' が見つかりません。\nインストールフォルダを確認してください。",
+                    translate("MainWindow", "ファイルが見つかりません"),
+                    translate(
+                        "MainWindow",
+                        "'{filename}'が見つかりません。\nインストールフォルダーを確認してください。",
+                    ).format(filename=filename),
                 )
         except Exception as e:
-            QMessageBox.warning(self, "エラー", f"フォルダを開けませんでした:\n{e}")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "エラー"),
+                translate("MainWindow", "フォルダーを開けませんでした:\n{error}").format(
+                    error=e
+                ),
+            )
 
     @Slot(str)
     def _on_non_cancellable_started(self, message):
@@ -5365,11 +5566,15 @@ class OfficePDFBinderApp(QMainWindow):
         self._sort_bookmarks_by_page()
         self.bookmark_tree.clear()
         for idx, bookmark in enumerate(self.bookmarks):
-            display_title = bookmark.get("title", "無題")
+            untitled = translate("MainWindow", "無題")
+            display_title = bookmark.get("title", untitled)
             if bookmark.get("auto"):
-                display_title += " (自動)"
+                display_title += translate("MainWindow", "（自動）")
             item = QTreeWidgetItem([display_title])
-            tooltip = f"{bookmark.get('title','無題')}\n{os.path.basename(bookmark.get('path',''))}"
+            tooltip = (
+                f"{bookmark.get('title', untitled)}\n"
+                f"{os.path.basename(bookmark.get('path', ''))}"
+            )
             if "page_num" in bookmark:
                 tooltip += f" / P.{bookmark.get('page_num', 0) + 1}"
             item.setToolTip(0, tooltip)
@@ -5426,7 +5631,9 @@ class OfficePDFBinderApp(QMainWindow):
             menu.addAction(self.move_down_action)
             menu.addAction(self.move_to_bottom_action)
 
-            bookmark_action = QAction("選択ページにしおり", self)
+            bookmark_action = QAction(
+                translate("MainWindow", "選択ページにしおりを追加"), self
+            )
             bookmark_action.triggered.connect(self._add_bookmark_from_selection)
             menu.addSeparator()
             menu.addAction(bookmark_action)
@@ -5443,7 +5650,11 @@ class OfficePDFBinderApp(QMainWindow):
         """選択中のページから手動しおりを追加"""
         selected_items = self.page_list_widget.selectedItems()
         if not selected_items:
-            QMessageBox.information(self, "しおり", "ページを選択してください。")
+            QMessageBox.information(
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "ページを選択してください。"),
+            )
             return
         item = selected_items[0]
         item_data = item.data(Qt.UserRole)
@@ -5452,8 +5663,8 @@ class OfficePDFBinderApp(QMainWindow):
         default_title = self._format_bookmark_title(item_data)
         title, ok = QInputDialog.getText(
             self,
-            "しおりを追加",
-            "しおり名:",
+            translate("MainWindow", "しおりを追加"),
+            translate("MainWindow", "しおり名:"),
             QLineEdit.EchoMode.Normal,
             default_title,
         )
@@ -5461,7 +5672,11 @@ class OfficePDFBinderApp(QMainWindow):
             return
         title = title.strip()
         if not title:
-            QMessageBox.warning(self, "しおり", "しおり名を入力してください。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "しおり名を入力してください。"),
+            )
             return
         self.bookmarks.append(
             {
@@ -5485,14 +5700,18 @@ class OfficePDFBinderApp(QMainWindow):
             return
         index = item.data(0, self.BOOKMARK_INDEX_ROLE)
         if index is None or not (0 <= int(index) < len(self.bookmarks)):
-            QMessageBox.warning(self, "しおり", "しおり情報を取得できませんでした。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "しおり情報を取得できませんでした。"),
+            )
             return
         index = int(index)
         is_auto = bookmark.get("auto", False)
         new_title, ok = QInputDialog.getText(
             self,
-            "しおりの名前変更",
-            "新しい名前:",
+            translate("MainWindow", "しおりの名前を変更"),
+            translate("MainWindow", "新しい名前:"),
             QLineEdit.EchoMode.Normal,
             bookmark.get("title", ""),
         )
@@ -5500,7 +5719,11 @@ class OfficePDFBinderApp(QMainWindow):
             return
         new_title = new_title.strip()
         if not new_title:
-            QMessageBox.warning(self, "しおり", "名前を入力してください。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "名前を入力してください。"),
+            )
             return
         self.bookmarks[index]["title"] = new_title
         # 自動しおりを編集した場合は手動しおりに変換（次回自動生成時に再生成されない）
@@ -5519,7 +5742,11 @@ class OfficePDFBinderApp(QMainWindow):
             return
         index = item.data(0, self.BOOKMARK_INDEX_ROLE)
         if index is None or not (0 <= int(index) < len(self.bookmarks)):
-            QMessageBox.warning(self, "しおり", "しおり情報を取得できませんでした。")
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "しおり情報を取得できませんでした。"),
+            )
             return
         index = int(index)
         self.bookmarks.pop(index)
@@ -5551,7 +5778,9 @@ class OfficePDFBinderApp(QMainWindow):
         target_row = self._find_row_for_bookmark(bookmark)
         if target_row is None:
             QMessageBox.warning(
-                self, "しおり", "該当するページが見つかりませんでした。"
+                self,
+                translate("MainWindow", "しおり"),
+                translate("MainWindow", "対応するページが見つかりません。"),
             )
             return
         target_item = self.page_list_widget.item(target_row)
@@ -5714,7 +5943,7 @@ class OfficePDFBinderApp(QMainWindow):
         """中断不可処理が終わったときに呼び出されるスロット。"""
         if self.progress_dialog:
             self.progress_dialog.setCancelButtonText(
-                "キャンセル"
+                translate("MainWindow", "キャンセル")
             )  # これでボタンが再表示される
 
 
@@ -5963,9 +6192,7 @@ def _handle_new_connection(server, window):
 
 
 if __name__ == "__main__":
-    import os as os_module
-
-    process_id = os_module.getpid()
+    process_id = os.getpid()
     # コマンドライン引数からファイルパスを取得（最初の引数はスクリプト名なので除外）
     initial_file_paths = sys.argv[1:] if len(sys.argv) > 1 else []
     _startup_log(
@@ -6056,6 +6283,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("Office PDF Binder")
     app.setWindowIcon(_get_app_icon())
+    app_language, translation_loaded = install_app_translator(app, _get_runtime_dir())
+    if not translation_loaded:
+        _debug_log("[I18N] 英語翻訳を読み込めなかったため、日本語で起動します")
+    _debug_log(f"[I18N] language={app_language}")
     _startup_log("main QApplication created")
     startup_geometry, startup_maximized = _load_startup_window_geometry()
 

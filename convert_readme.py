@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-README.md を README.html に変換するスクリプト
-"""
+"""日本語・英語READMEをアプリ内マニュアル用HTMLへ変換する。"""
 
 import markdown
 
-# README.md を読み込む
-with open("README.md", "r", encoding="utf-8") as f:
-    md_content = f.read()
-
-# Markdown を HTML に変換
-html_body = markdown.markdown(md_content, extensions=["tables", "fenced_code"])
-
 # HTML テンプレート
 html_template = """<!DOCTYPE html>
-<html lang="ja">
+<html lang="{lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office PDF Binder - ユーザーマニュアル</title>
+    <title>{title}</title>
     <style>
         body {{
             font-family: 'Meiryo UI', 'Segoe UI', 'Yu Gothic', sans-serif;
@@ -95,11 +86,28 @@ html_template = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# HTML を生成
-html_content = html_template.format(body=html_body)
 
-# README.html に書き込む
-with open("README.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
+def convert_readme(source, destination, lang, title):
+    with open(source, "r", encoding="utf-8") as source_file:
+        markdown_content = source_file.read()
+    html_body = markdown.markdown(
+        markdown_content, extensions=["tables", "fenced_code"]
+    )
+    html_content = html_template.format(lang=lang, title=title, body=html_body)
+    with open(destination, "w", encoding="utf-8") as destination_file:
+        destination_file.write(html_content)
+    print(f"{destination} を生成しました。")
 
-print("README.html を生成しました。")
+
+convert_readme(
+    "README.md",
+    "README.html",
+    "ja",
+    "Office PDF Binder - ユーザーマニュアル",
+)
+convert_readme(
+    "README.en.md",
+    "README.en.html",
+    "en",
+    "Office PDF Binder - User Manual",
+)

@@ -85,7 +85,7 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 
 ### 3.4 ビルド・インストール
 
-- [ ] `build_installer.ps1`が完了する
+- [ ] `build.ps1 -Mode Release`が完了する
 - [ ] クリーンなWindows 10/11 64bit環境でインストールできる
 - [ ] Python未導入環境で起動できる
 - [ ] README、LICENSE、NOTICE、source.zipが同梱される

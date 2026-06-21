@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office PDF Binder - User Manual</title>
+    <style>
+        body {
+            font-family: 'Meiryo UI', 'Segoe UI', 'Yu Gothic', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #555;
+            margin-top: 20px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 20px 0;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+<h1>Office PDF Binder</h1>
+<p>Office PDF Binder is a Windows desktop application that combines PDF, Word,
+Excel, and PowerPoint files into a single PDF. You can organize, delete, and
+rotate individual PDF pages before saving the result.</p>
+<p><img alt="Office PDF Binder main window" src="docs/images/screenshot-main-en.png" /></p>
+<hr />
+<h2>1. Requirements</h2>
+<ul>
+<li>Windows 10 or Windows 11 (64-bit)</li>
+<li>Microsoft Office when converting Word, Excel, or PowerPoint files</li>
+<li>No separate Python installation is required for packaged releases</li>
+</ul>
+<p>Office files are converted through the locally installed Microsoft Office
+applications. Office PDF Binder does not upload documents to an online service.</p>
+<hr />
+<h2>2. Features</h2>
+<ul>
+<li>Combine PDF, Word, Excel, and PowerPoint files into one PDF</li>
+<li>Add files with a file dialog, drag and drop, or Windows Explorer</li>
+<li>Reorder, delete, and rotate PDF pages</li>
+<li>Reorder multiple selected pages by dragging them together</li>
+<li>Detect duplicate files</li>
+<li>Import existing PDF bookmarks</li>
+<li>Create automatic bookmarks for each source file</li>
+<li>Add, rename, delete, and navigate manual bookmarks</li>
+<li>Add headers, footers, dates, and page numbers</li>
+<li>Export selected pages as a PDF</li>
+<li>Export selected PDF pages as JPEG images at 300 dpi</li>
+<li>Open the original file by double-clicking a page</li>
+<li>Five thumbnail zoom levels with Ctrl+mouse wheel support</li>
+<li>Undo and redo up to 15 changes</li>
+</ul>
+<p>Supported extensions:</p>
+<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm</code></p>
+<hr />
+<h2>3. Installation and Portable Version</h2>
+<p>Download the latest installer or portable ZIP from GitHub Releases.</p>
+<p>The installer includes the application, this manual, license documents, and
+the corresponding source archive. The installer can be displayed in English
+or Japanese, and Office PDF Binder uses the language selected during setup.</p>
+<p>The portable version automatically uses Japanese on a Japanese Windows system
+and English on other Windows language settings.</p>
+<h3>Installation notes</h3>
+<ul>
+<li>Uninstall an older release before installing a version that cannot be
+  upgraded in place.</li>
+<li>This is an unsigned independently developed application. Windows SmartScreen
+  may display a warning.</li>
+<li>Microsoft Office is required only for Word, Excel, and PowerPoint conversion.</li>
+</ul>
+<hr />
+<h2>4. Basic Use</h2>
+<h3>4.1 Add files</h3>
+<ul>
+<li>Select <strong>Add Files</strong>, press <code>Ctrl+O</code>, or drag supported files into the window.</li>
+<li>You can select multiple supported files in Windows Explorer and use
+  <strong>Open with Office PDF Binder</strong>.</li>
+<li>Files already present in the list are detected and are not added twice.</li>
+</ul>
+<h3>4.2 Organize pages</h3>
+<ul>
+<li>Select one or more pages to enable page operations.</li>
+<li>Rotate pages 90 degrees left or right.</li>
+<li>Move pages up, down, to the top, or to the bottom.</li>
+<li>Press <code>Delete</code> to remove selected items and <code>Ctrl+A</code> to select all items.</li>
+<li>Drag selected pages to reorder them while preserving their relative order.</li>
+</ul>
+<p>Office documents appear as a single item in the list. They are converted to
+PDF when the combined document is saved.</p>
+<h3>4.3 Start a new session</h3>
+<p>Select <strong>File &gt; New</strong> to clear the current list, bookmarks, and page settings.</p>
+<h3>4.4 Bookmarks</h3>
+<ul>
+<li>Select <strong>View &gt; Bookmarks</strong> to show or hide the bookmarks panel.</li>
+<li>Existing PDF bookmarks are imported when a PDF is added.</li>
+<li>Enable <strong>Settings &gt; Create Bookmarks for Each File</strong> to create a bookmark at
+  the first page of each source file.</li>
+<li>Right-click a selected page and choose <strong>Add Bookmark to Selected Page</strong>.</li>
+<li>Use the bookmarks panel to add, rename, or delete bookmarks.</li>
+<li>Double-click a bookmark to navigate to its page.</li>
+<li>Renaming an automatic bookmark converts it to a manual bookmark.</li>
+</ul>
+<h3>4.5 Zoom</h3>
+<ul>
+<li>Use <strong>View &gt; Zoom In</strong>, <strong>Zoom Out</strong>, or <strong>Fit to Window</strong>.</li>
+<li>Hold <code>Ctrl</code> while using the mouse wheel to zoom.</li>
+<li>Press <code>Ctrl+0</code> to fit the thumbnails to the window.</li>
+</ul>
+<h3>4.6 Headers, footers, and page numbers</h3>
+<p>Select <strong>Settings &gt; Header and Footer</strong> to configure content added when the PDF
+is saved.</p>
+<ul>
+<li>Enable the header, footer, or both.</li>
+<li>Enter separate text for the left, center, and right positions.</li>
+<li>Insert the current date on the right.</li>
+<li>Select the page-number position and format.</li>
+<li>Set the first page number and font size.</li>
+</ul>
+<p><img alt="Header and footer settings" src="docs/images/screenshot-header-footer-en.png" /></p>
+<h3>4.7 Export selected pages</h3>
+<ul>
+<li>Select <strong>File &gt; Export Selected Pages as PDF</strong> to create a PDF containing
+  only the selected pages.</li>
+<li>Select <strong>File &gt; Export Selected Pages as Images</strong> to export selected PDF pages
+  as JPEG images at 300 dpi.</li>
+<li>Word, Excel, and PowerPoint items cannot be exported as images.</li>
+</ul>
+<h3>4.8 Combine and save</h3>
+<p>Select <strong>File &gt; Save As</strong> or press <code>Ctrl+S</code>. Choose an output path, and Office
+PDF Binder combines the current list into one PDF.</p>
+<p>After saving, the PDF opens in the default PDF viewer. The application then
+asks whether to clear the current list.</p>
+<hr />
+<h2>5. Keyboard Shortcuts</h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New</td>
+<td><code>Ctrl+N</code></td>
+</tr>
+<tr>
+<td>Add Files</td>
+<td><code>Ctrl+O</code></td>
+</tr>
+<tr>
+<td>Combine and Save</td>
+<td><code>Ctrl+S</code></td>
+</tr>
+<tr>
+<td>Exit</td>
+<td><code>Ctrl+Q</code></td>
+</tr>
+<tr>
+<td>Select All</td>
+<td><code>Ctrl+A</code></td>
+</tr>
+<tr>
+<td>Delete Selected</td>
+<td><code>Delete</code></td>
+</tr>
+<tr>
+<td>Zoom In / Out</td>
+<td><code>Ctrl</code> + <code>+</code> / <code>-</code>, or <code>Ctrl</code> + mouse wheel</td>
+</tr>
+<tr>
+<td>Fit to Window</td>
+<td><code>Ctrl+0</code></td>
+</tr>
+<tr>
+<td>Header and Footer</td>
+<td><code>Ctrl+H</code></td>
+</tr>
+<tr>
+<td>Undo / Redo</td>
+<td><code>Ctrl+Z</code> / <code>Ctrl+Y</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6. Troubleshooting</h2>
+<h3>An Office file cannot be converted</h3>
+<ul>
+<li>Verify that the corresponding Microsoft Office application is installed.</li>
+<li>Close the document in other applications and try again.</li>
+<li>Password-protected or damaged documents may not be convertible.</li>
+</ul>
+<h3>A PDF cannot be saved</h3>
+<ul>
+<li>Check that you have write permission for the output folder.</li>
+<li>Keep at least 100 MB of free space on the output drive.</li>
+<li>Close the output PDF if it is open in another application.</li>
+</ul>
+<h3>Pages cannot be exported as images</h3>
+<p>Image export supports PDF pages only. Word, Excel, and PowerPoint items are not
+included.</p>
+<h3>High memory use or slow thumbnails</h3>
+<ul>
+<li>Split very large documents into smaller operations when practical.</li>
+<li>Reduce the thumbnail zoom level.</li>
+</ul>
+<hr />
+<h2>7. Restricted Portable Mode</h2>
+<p>The portable package contains <code>OfficePDFBinder.restricted-portable</code>. Keep this
+marker file next to the executable.</p>
+<p>In restricted portable mode, Office PDF Binder:</p>
+<ul>
+<li>does not save application settings in AppData;</li>
+<li>does not write its optional debug log to the user profile; and</li>
+<li>creates temporary Office-conversion PDFs beside the source Office file and
+  deletes them after processing.</li>
+</ul>
+<p>Microsoft Office, Windows, and Qt may still use their own system services,
+temporary folders, caches, or registry settings.</p>
+<hr />
+<h2>8. Development and Testing</h2>
+<p>Install runtime and development dependencies with:</p>
+<pre><code class="language-powershell">pip install -r requirements.txt
+pip install -r requirements-dev.txt
+</code></pre>
+<p>Run automated tests with:</p>
+<pre><code class="language-powershell">python -m pytest
+</code></pre>
+<p>Build operations use the single <code>build.ps1</code> entry point. To regenerate only
+the manual and installer from the existing <code>dist</code>, run:</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Package
+</code></pre>
+<p>After application code changes, reuse Nuitka intermediate files with:</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Fast
+</code></pre>
+<p>For the final public release, run a clean build:</p>
+<pre><code class="language-powershell">.\build.ps1 -Mode Release
+</code></pre>
+<p><code>Fast</code> and <code>Release</code> create the distribution directory, portable package, and
+installer. <code>Package</code> skips Nuitka and regenerates only the installer from the
+existing distribution directory.</p>
+<p>The Nuitka application is compiled once. The same distribution directory is
+used for the installer and the marker-based portable ZIP.</p>
+<hr />
+<h2>9. License</h2>
+<ul>
+<li>Office PDF Binder: GNU Affero General Public License v3.0 (<code>LICENSE.txt</code>)</li>
+<li>Third-party components: see <code>NOTICE.txt</code></li>
+<li>Corresponding source: included as <code>source.zip</code> in installer distributions</li>
+</ul>
+<hr />
+<p>Copyright (C) 2026 Takeshi Kashiwagi</p>
+</body>
+</html>

@@ -1,12 +1,23 @@
-【使用許諾契約書】
+LICENSE NOTICE / ライセンスについて
 
-本ソフトウェア「Office PDF Binder」は、オープンソースライセンス「GNU AFFERO GENERAL PUBLIC LICENSE v3.0 (AGPL-3.0)」の下で提供されます。
+English
+-------
+Office PDF Binder is provided under the GNU AFFERO GENERAL PUBLIC LICENSE
+Version 3 (AGPL-3.0).
 
-・どなたでも自由に、無償で本ソフトウェアを利用・複製・改変・再配布することができます。
-・再配布を行う場合は、ソースコードの公開義務など、AGPL-3.0の条項に従う必要があります。
-・本ソフトウェアは「現状のまま」提供され、作者はいかなる保証も行いません。
+You may use, copy, modify, and redistribute this software subject to the
+terms of the AGPL-3.0. This software is provided "as is", without warranty.
+The complete and legally authoritative license text is the unmodified English
+text below.
 
-※なお、法的効力を有する正式なライセンス条文は、以下の英文となります。
+日本語
+------
+本ソフトウェア「Office PDF Binder」は、GNU AFFERO GENERAL PUBLIC LICENSE
+Version 3（AGPL-3.0）の下で提供されます。
+
+AGPL-3.0の条件に従い、本ソフトウェアを利用・複製・改変・再配布できます。
+本ソフトウェアは「現状のまま」提供され、作者はいかなる保証も行いません。
+正式なライセンス条文は、以下の改変していない英文です。
 
 =======================================================
 

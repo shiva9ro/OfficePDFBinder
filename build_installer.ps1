@@ -2,6 +2,10 @@
 #  Office PDF Binder - full build script
 # ========================================================
 
+param(
+    [switch]$Fast
+)
+
 # 現在の conda 環境を優先。未設定の場合はパスから python を検索。
 if ($Env:CONDA_PREFIX -and (Test-Path (Join-Path $Env:CONDA_PREFIX "python.exe"))) {
     $PythonExe = Join-Path $Env:CONDA_PREFIX "python.exe"
@@ -14,6 +18,8 @@ $IssFile = "setup_office_binder.iss"
 $IconFile = "app.ico"
 $SelfScriptName = "build_installer.ps1"
 $PortableScriptName = "build_portable.ps1"
+$TranslationSource = "translations\OfficePDFBinder_en.ts"
+$TranslationBinary = "translations\OfficePDFBinder_en.qm"
 
 $ProductName = "Office PDF Binder"
 $InternalName = "OfficePDFBinder_Main"
@@ -37,14 +43,44 @@ Write-Host "========================================================"
 if (Test-Path "Output") { Remove-Item -Recurse -Force "Output" }
 if (Test-Path "source.zip") { Remove-Item -Force "source.zip" }
 
-# Nuitka の中間生成物と配布フォルダを削除し、毎回クリーンにビルドします。
-if (Test-Path "$InternalName.build") { 
-    Write-Host " - 古い中間ビルドフォルダを削除中..." 
-    Remove-Item -Recurse -Force "$InternalName.build" 
+# 高速ビルドではNuitkaの中間生成物を再利用する。
+# distは古いDLL等が残らないよう、どちらのモードでも作り直す。
+if (-not $Fast -and (Test-Path "$InternalName.build")) {
+    Write-Host " - 古い中間ビルドフォルダを削除中..."
+    Remove-Item -Recurse -Force "$InternalName.build"
+} elseif ($Fast -and (Test-Path "$InternalName.build")) {
+    Write-Host " - 高速ビルド: 中間ビルドフォルダを再利用します。" -ForegroundColor Yellow
+} elseif ($Fast) {
+    Write-Host " - 高速ビルド: 再利用できる中間生成物がないため、初回は通常速度です。" -ForegroundColor Yellow
 }
 if (Test-Path "$InternalName.dist") { 
     Write-Host " - 古いビルドフォルダを削除中..." 
     Remove-Item -Recurse -Force "$InternalName.dist" 
+}
+
+Write-Host "`n========================================================" -ForegroundColor Cyan
+Write-Host "[1.5/5] Qt翻訳ファイルを更新・コンパイル..."
+Write-Host "========================================================"
+
+$PythonDir = Split-Path -Parent $PythonExe
+$LUpdateExe = Join-Path $PythonDir "Scripts\pyside6-lupdate.exe"
+$LReleaseExe = Join-Path $PythonDir "Scripts\pyside6-lrelease.exe"
+foreach ($Tool in @($LUpdateExe, $LReleaseExe)) {
+    if (-not (Test-Path -LiteralPath $Tool -PathType Leaf)) {
+        Write-Host "[ERROR] Qt翻訳ツールがありません: $Tool" -ForegroundColor Red
+        exit 1
+    }
+}
+
+& $LUpdateExe $ScriptName -ts $TranslationSource -source-language ja_JP -target-language en_US
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] 翻訳対象文字列の更新に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+& $LReleaseExe $TranslationSource -qm $TranslationBinary -nounfinished
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Qt翻訳ファイルのコンパイルに失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
 }
 
 
@@ -65,16 +101,21 @@ Write-Host "========================================================"
 
 $SourceFiles = @(
     $ScriptName,
+    "i18n.py",
     $IssFile,
     $IconFile,
     $VersionFile,
     "LICENSE.txt",
     "NOTICE.txt",
+    "build.ps1",
     $SelfScriptName,
     $PortableScriptName,
     "convert_readme.py",
     "README.md",
     "README.html",
+    "README.en.md",
+    "README.en.html",
+    $TranslationSource,
     "docs\images"
 )
 $Missing = $false
@@ -99,7 +140,8 @@ Write-Host " - バックアップ作成: $BackupPath" -ForegroundColor Green
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[4/5] Nuitka ビルド (Ver $AppVersion)..."
+$BuildMode = if ($Fast) { "高速" } else { "クリーン" }
+Write-Host "[4/5] Nuitka $BuildMode ビルド (Ver $AppVersion)..."
 Write-Host "========================================================"
 
 $NuitkaArgs = @(
@@ -126,6 +168,7 @@ $NuitkaArgs = @(
     "--nofollow-import-to=PySide6.QtPdf",
     "--nofollow-import-to=PySide6.QtQuick",
     "--nofollow-import-to=PySide6.QtQml",
+    "--include-data-file=$TranslationBinary=$TranslationBinary",
     $ScriptName
 )
 
