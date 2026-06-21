@@ -1,276 +1,253 @@
 # Office PDF Binder
 
-日本語 | [English](README.en.md)
+English | [日本語](README.ja.md)
 
-> **English:** Combine PDF, Word, Excel, and PowerPoint files into a single PDF. See the [English README](README.en.md).
+Office PDF Binder is a Windows desktop application that combines PDF, Word,
+Excel, and PowerPoint files into a single PDF. You can organize, delete, and
+rotate individual PDF pages before saving the result.
 
-Office PDF Binder は、複数の PDF / Office ファイルを 1 つの PDF にまとめ、ページ単位で並べ替え・削除・回転ができる Windows デスクトップアプリです。
-
-PDF、Word、Excel、PowerPoint の資料をまとめて、提出用・共有用の PDF を作る作業を効率化するために作成しました。
-
-![Office PDF Binder のメイン画面](docs/images/screenshot-main.png)
+![Office PDF Binder main window](docs/images/screenshot-main-en.png)
 
 ---
 
-## 1. 対応環境
+## 1. Requirements
 
-- Windows 10 / 11（64bit）
-- Microsoft Office（Word / Excel / PowerPoint ファイルを変換する場合）
-- インストーラー版の利用に、追加の Python やライブラリは不要
+- Windows 10 or Windows 11 (64-bit)
+- Microsoft Office when converting Word, Excel, or PowerPoint files
+- No separate Python installation is required for packaged releases
+
+Office files are converted through the locally installed Microsoft Office
+applications. Office PDF Binder does not upload documents to an online service.
+PDF files are loaded as individual pages. Word, Excel, and PowerPoint documents
+are added as files and converted to PDF when the combined PDF is saved.
 
 ---
 
-## 2. 主な機能
+## 2. Features
 
-- PDF / Word / Excel / PowerPoint を一括読み込みし、ページ単位で結合
-- 対応ファイルをアプリ画面へドラッグ&ドロップして開く機能
-- ページごとの移動・削除・回転（90 度単位）
-- ドラッグ&ドロップによるページ並び替え（複数選択対応）
-- ファイルの重複チェック
-- 既存PDFしおりの読み込み
-- 自動しおり（ファイル先頭ページ）と手動しおり編集
-- 保存PDFを開いたときのしおりパネル自動表示
-- ヘッダーとフッターの追加（テキスト、日付、ページ番号）
-- 選択ページをPDFとしてエクスポート
-- 選択ページを画像としてエクスポート（JPEG形式・300dpi・PDFページのみ対象）
-- ダブルクリックで元のファイルを標準ビューアで開く
-- ズーム 5 段階（Ctrl+ホイール対応）とサムネイル高速化
-- Undo / Redo（15 ステップ）
-- エクスプローラーの右クリックメニューからファイル追加
+- Load, reorder, delete, and rotate individual PDF pages
+- Add Word, Excel, and PowerPoint documents as files and convert them when saving
+- Add files with a file dialog, drag and drop, or Windows Explorer
+- Reorder, delete, and rotate PDF pages
+- Reorder multiple selected pages by dragging them together
+- Detect duplicate files
+- Import existing PDF bookmarks
+- Create automatic bookmarks for each source file
+- Add, rename, delete, and navigate manual bookmarks
+- Add headers, footers, dates, and page numbers
+- Export selected pages as a PDF
+- Export selected PDF pages as JPEG images at 300 dpi
+- Open the original file by double-clicking a page
+- Five thumbnail zoom levels with Ctrl+mouse wheel support
+- Undo and redo up to 15 changes
 
-対応拡張子:
+Supported extensions:
 
 `.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm`
 
 ---
 
-## 3. ダウンロード
+## 3. Installation and Portable Version
 
-GitHub Releases から最新版のインストーラーをダウンロードしてください。
+Download the latest installer or portable ZIP from GitHub Releases.
 
-```text
-OfficePDFBinder_Setup_1.2.0.exe
-```
+The installer includes the application, this manual, license documents, and
+the corresponding source archive. The installer can be displayed in English
+or Japanese, and Office PDF Binder uses the language selected during setup.
 
-インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。
+The portable version automatically uses Japanese on a Japanese Windows system
+and English on other Windows language settings.
 
-### インストール時の注意
+### Installation notes
 
-- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.2.0 をインストールしてください。
-- 本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。
-- Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office がインストールされている必要があります。
-
----
-
-## 4. 基本操作
-
-### 4.1 ファイル追加
-
-- ツールバーの「ファイル追加」ボタン、`Ctrl+O`、またはアプリ画面へのドラッグ&ドロップで追加できます。
-- 対応ファイルをアプリ画面に直接ドロップすると、そのファイルを開いてページ一覧に追加できます。
-- エクスプローラーで複数ファイルを選択して右クリックし、「Office PDF Binder で開く」から追加できます。
-- 既に追加済みのファイルは自動でスキップされます。
-
-### 4.2 ページ編集
-
-- ページを選択すると、ツールバーや右クリックメニューの操作が有効になります。
-- 左右 90 度回転、上下移動、一番上 / 一番下への移動、削除ができます。
-- `Delete` キーで削除、`Ctrl+A` ですべて選択できます。
-- 複数ページを選択してドラッグ&ドロップで並び替えできます。
-- 選択したページを長押し（約0.5秒）すると、ページ移動モードに切り替わります。
-
-### 4.3 新規作成
-
-- `ファイル → 新規` で、現在のリストをクリアして初期状態に戻せます。
-
-### 4.4 しおり
-
-- `表示 → しおり` で、しおりパネルの表示/非表示を切り替えます。
-- PDFに既存のしおりがある場合は、読み込み時に取り込まれます。
-- `設定 → ファイルごとにしおりを自動作成` で、ファイル先頭ページの自動しおりを切り替えられます。
-- 選択ページを右クリックして「選択ページにしおりを追加」を選ぶと、手動しおりを追加できます。
-- しおりパネルから、しおりの追加、名前変更、削除ができます。
-- しおりをダブルクリックすると、該当ページへ移動します。
-- 自動しおりの名前を変更すると、手動しおりとして扱われます。
-- `設定 → 保存したPDFを開くときにしおりを表示` で、保存PDFを開いたときにPDFビューアのしおりパネルを表示するかを切り替えられます。
-
-### 4.5 ズーム
-
-- `表示 → 拡大` / `縮小` / `ウィンドウに合わせる` で表示倍率を変更できます。
-- `Ctrl` + ホイールでもズームできます。
-- `Ctrl+0` で標準表示に戻せます。
-- 5 段階（約 0.33〜3.06 倍）を切り替え、サムネイルはキャッシュから高速に更新されます。
-
-### 4.6 ヘッダーとフッター
-
-- `設定 → ヘッダーとフッター` で、保存時に追加するヘッダーとフッターを設定できます。
-- ヘッダー / フッターそれぞれに、左・中央・右のテキストを指定できます。
-- 右側に現在の日付を自動挿入できます。
-- ページ番号の位置、形式、開始番号、フォントサイズを設定できます。
-- 設定内容は保存時に全ページへ適用されます。
-
-![ヘッダー・フッター設定画面](docs/images/screenshot-header-footer.png)
-
-### 4.7 エクスポート
-
-- `ファイル → 選択ページをPDFとして書き出し` で、選択したページを書き出せます。
-- PDFページは選択ページのみを書き出します。
-- Word / Excel / PowerPoint は、そのファイルを1つ選んだ場合に、そのファイル全体を書き出します。
-- `ファイル → 選択ページを画像として書き出し` で、選択したPDFページを JPEG（300dpi）として書き出せます。
-- 画像書き出しはPDFページのみ対象です。
-
-### 4.8 ファイルを開く
-
-- ページをダブルクリックすると、元のファイルを標準ビューアで開きます。
-
-### 4.9 PDF保存
-
-- `ファイル → 名前を付けて保存` または `Ctrl+S` で結合PDFを保存します。
-- 保存完了後、結合したPDFファイルが標準ビューアで自動的に開きます。
-- その後、リストをクリアするかどうか確認ダイアログが表示されます。
+- Uninstall an older release before installing a version that cannot be
+  upgraded in place.
+- This is an unsigned independently developed application. Windows SmartScreen
+  may display a warning.
+- Microsoft Office is required only for Word, Excel, and PowerPoint conversion.
 
 ---
 
-## 5. 右クリックメニュー
+## 4. Basic Use
 
-ページを右クリックすると、選択状態に応じて以下の操作ができます。
+### 4.1 Add files
 
-- ファイル追加
-- 左右 90 度回転
-- 一番上 / 上 / 下 / 一番下へ移動
-- 選択ページにしおりを追加
-- 選択ページをPDFとして書き出し
-- 選択ページを画像として書き出し
-- 削除
+- Select **Add Files**, press `Ctrl+O`, or drag supported files into the window.
+- You can select multiple supported files in Windows Explorer and use
+  **Open with Office PDF Binder**.
+- Files already present in the list are detected and are not added twice.
+
+### 4.2 Organize pages
+
+- Select one or more pages to enable page operations.
+- Rotate pages 90 degrees left or right.
+- Move pages up, down, to the top, or to the bottom.
+- Press `Delete` to remove selected items and `Ctrl+A` to select all items.
+- Drag selected pages to reorder them while preserving their relative order.
+
+Office documents appear as a single item in the list. They are converted to
+PDF when the combined document is saved.
+
+### 4.3 Start a new session
+
+Select **File > New** to clear the current list, bookmarks, and page settings.
+
+### 4.4 Bookmarks
+
+- Select **View > Bookmarks** to show or hide the bookmarks panel.
+- Existing PDF bookmarks are imported when a PDF is added.
+- Enable **Settings > Create Bookmarks for Each File** to create a bookmark at
+  the first page of each source file.
+- Right-click a selected page and choose **Add Bookmark to Selected Page**.
+- Use the bookmarks panel to add, rename, or delete bookmarks.
+- Double-click a bookmark to navigate to its page.
+- Renaming an automatic bookmark converts it to a manual bookmark.
+
+### 4.5 Zoom
+
+- Use **View > Zoom In**, **Zoom Out**, or **Fit to Window**.
+- Hold `Ctrl` while using the mouse wheel to zoom.
+- Press `Ctrl+0` to fit the thumbnails to the window.
+
+### 4.6 Headers, footers, and page numbers
+
+Select **Settings > Header and Footer** to configure content added when the PDF
+is saved.
+
+- Enable the header, footer, or both.
+- Enter separate text for the left, center, and right positions.
+- Insert the current date on the right.
+- Select the page-number position and format.
+- Set the first page number and font size.
+
+![Header and footer settings](docs/images/screenshot-header-footer-en.png)
+
+### 4.7 Export selected pages
+
+- Select **File > Export Selected Pages as PDF** to create a PDF containing
+  only the selected pages.
+- Select **File > Export Selected Pages as Images** to export selected PDF pages
+  as JPEG images at 300 dpi.
+- Word, Excel, and PowerPoint items cannot be exported as images.
+
+### 4.8 Combine and save
+
+Select **File > Save As** or press `Ctrl+S`. Choose an output path, and Office
+PDF Binder combines the current list into one PDF.
+
+After saving, the PDF opens in the default PDF viewer. The application then
+asks whether to clear the current list.
 
 ---
 
-## 6. キーボードショートカット
+## 5. Keyboard Shortcuts
 
-| 操作 | ショートカット |
-|------|----------------|
-| 新規 | `Ctrl+N` |
-| ファイル追加 | `Ctrl+O` |
-| 保存 | `Ctrl+S` |
-| 終了 | `Ctrl+Q` |
-| 全選択 | `Ctrl+A` |
-| 削除 | `Delete` |
-| ズームイン / アウト | `Ctrl` + `+` / `-` または `Ctrl` + ホイール |
-| ウィンドウに合わせる | `Ctrl+0` |
-| ヘッダーとフッター | `Ctrl+H` |
-| 元に戻す / やり直し | `Ctrl+Z` / `Ctrl+Y` |
-
----
-
-## 7. トラブルシューティング
-
-### Office ファイルが追加できない
-
-- Microsoft Office がインストール済みか確認してください。
-- 対象ファイルが他のアプリで開かれていないか確認してください。
-- パスワード保護や破損したファイルは変換できない場合があります。
-
-### PDF 保存に失敗する
-
-- 保存先に書き込み権限があるか確認してください。
-- 空き容量が 100MB 以上あるか確認してください。
-- 保存先ファイルを他アプリで開いていないか確認してください。
-
-### 画像として書き出せない
-
-- 画像書き出しはPDFページのみ対象です。
-- Word / Excel / PowerPoint などのOfficeページは画像書き出し対象外です。
-
-### メモリ不足 / 画面が固まる
-
-- 大量ページを扱う場合はファイルを分割して処理してください。
-- ズーム倍率を下げるとサムネイル再生成が軽くなります。
+| Action | Shortcut |
+|---|---|
+| New | `Ctrl+N` |
+| Add Files | `Ctrl+O` |
+| Combine and Save | `Ctrl+S` |
+| Exit | `Ctrl+Q` |
+| Select All | `Ctrl+A` |
+| Delete Selected | `Delete` |
+| Zoom In / Out | `Ctrl` + `+` / `-`, or `Ctrl` + mouse wheel |
+| Fit to Window | `Ctrl+0` |
+| Header and Footer | `Ctrl+H` |
+| Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 
 ---
 
-## 8. 開発・ビルド
+## 6. Troubleshooting
 
-開発時は、OfficePDFBinder 用の Python 環境を有効化して作業します。
+### An Office file cannot be converted
 
-確認済みの開発環境:
+- Verify that the corresponding Microsoft Office application is installed.
+- Close the document in other applications and try again.
+- Password-protected or damaged documents may not be convertible.
 
-- Python 3.12.12
+### A PDF cannot be saved
 
-主な依存関係:
+- Check that you have write permission for the output folder.
+- Keep at least 100 MB of free space on the output drive.
+- Close the output PDF if it is open in another application.
 
-- PyMuPDF
-- PySide6
-- Pillow
-- qtawesome
-- pywin32
-- Nuitka
-- Markdown
-- Inno Setup 6
+### Pages cannot be exported as images
 
-Python パッケージは以下でインストールできます。
+Image export supports PDF pages only. Word, Excel, and PowerPoint items are not
+included.
+
+### High memory use or slow thumbnails
+
+- Split very large documents into smaller operations when practical.
+- Reduce the thumbnail zoom level.
+
+---
+
+## 7. Restricted Portable Mode
+
+The portable package contains `OfficePDFBinder.restricted-portable`. Keep this
+marker file next to the executable.
+
+In restricted portable mode, Office PDF Binder:
+
+- does not save application settings in AppData;
+- does not write its optional debug log to the user profile; and
+- creates temporary Office-conversion PDFs beside the source Office file and
+  deletes them after processing.
+
+Microsoft Office, Windows, and Qt may still use their own system services,
+temporary folders, caches, or registry settings.
+
+---
+
+## 8. Development and Testing
+
+Install runtime and development dependencies with:
 
 ```powershell
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-テスト用パッケージを追加し、pytest を実行するには次を使用します。
+Run automated tests with:
 
 ```powershell
-pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-自動テストの内訳と、Office・インストーラーを含む手動確認項目は
-[`TESTING.md`](TESTING.md) を参照してください。
-
-ビルド操作は `build.ps1` に統一しています。本体を変更せず、既存の `dist` から説明書とインストーラーだけを再生成する場合は、次を実行します。
+Build operations use the single `build.ps1` entry point. To regenerate only
+the manual and installer from the existing `dist`, run:
 
 ```powershell
 .\build.ps1 -Mode Package
 ```
 
-本体変更後の開発確認では、Nuitka中間生成物を再利用する高速ビルドを実行します。
+After application code changes, reuse Nuitka intermediate files with:
 
 ```powershell
 .\build.ps1 -Mode Fast
 ```
 
-公開用の最終確認では、クリーンビルドを実行します。
+For the final public release, run a clean build:
 
 ```powershell
 .\build.ps1 -Mode Release
 ```
 
-`Fast`と`Release`は、配布用の`dist`、ポータブル版、インストーラーを作成します。`Package`はNuitkaを実行せず、既存の`dist`を使ってインストーラーだけを再生成します。
+`Fast` and `Release` create the distribution directory, portable package, and
+installer. `Package` skips Nuitka and regenerates only the installer from the
+existing distribution directory.
 
-ビルドが完了すると、インストーラーと制限環境向けポータブル版（フォルダー、ZIP）が `Output/` に出力されます。Nuitkaによるアプリ本体のビルドは1回だけです。
-
-各モードは必要に応じて、アプリ内マニュアル用の `README.html` と、AGPL対応のために同梱する `source.zip` も再生成します。
-
-制限環境向けポータブル版には、実行ファイルと同じフォルダーに `OfficePDFBinder.restricted-portable` が同梱されます。このファイルがある場合、AppDataへの設定保存とホームフォルダーへのデバッグログ出力を行わず、Office変換用の一時PDFは変換元Officeファイルと同じフォルダーに作成して処理後に削除します。マーカーファイルを削除すると通常モードになるため、配布時は削除しないでください。
-
----
-
-## 9. リポジトリ運用
-
-Gitリポジトリには、ソースコード、ビルドスクリプト、ライセンス文書、READMEを含めます。
-
-以下はGit管理対象外です。
-
-- Nuitka のビルド成果物
-- インストーラー
-- `source.zip`
-- ローカルバックアップ
-- 検証用ファイルや一時ファイル
-
-配布用インストーラーは、GitHub Releases の Assets として公開します。
+The Nuitka application is compiled once. The same distribution directory is
+used for the installer and the marker-based portable ZIP.
 
 ---
 
-## 10. ライセンス
+## 9. License
 
-- ライセンス: GNU AGPL v3.0（詳細は `LICENSE.txt`）
-- 使用ライブラリ: PyMuPDF, PySide6, Pillow, qtawesome, pywin32 など（詳細は `NOTICE.txt`）
+- Office PDF Binder: GNU Affero General Public License v3.0 (`LICENSE.txt`)
+- Third-party components: see `NOTICE.txt`
+- Corresponding source: included as `source.zip` in installer distributions
 
 ---
 

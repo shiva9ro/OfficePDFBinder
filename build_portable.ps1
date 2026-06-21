@@ -30,11 +30,24 @@ if (-not (Test-Path -LiteralPath $DistDir -PathType Container)) {
     exit 1
 }
 
+& python ".\convert_readme.py"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] README の HTML 変換に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+& ".\create_source_archive.ps1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
 $RequiredFiles = @(
     "README.md",
+    "README.ja.md",
     "README.html",
-    "README.en.md",
-    "README.en.html",
+    "README.ja.html",
+    "source.zip",
     "LICENSE.txt",
     "NOTICE.txt"
 )

@@ -1,21 +1,23 @@
-name: 不具合報告
-description: Office PDF Binder の不具合を報告する
+name: Bug report / 不具合報告
+description: Report a problem with Office PDF Binder / 不具合を報告する
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        不具合報告ありがとうございます。
+        Thank you for reporting a problem. / 不具合報告ありがとうございます。
 
+        Do not attach personal data, confidential business information, internal documents, or non-public files.
         個人情報、業務情報、内部資料、非公開ファイルは添付しないでください。
-        再現に必要な場合は、公開可能なサンプルファイルやダミーファイルを使ってください。
+        Use public samples or dummy files when reproduction files are necessary.
+        再現には公開可能なサンプルファイルやダミーファイルを使用してください。
 
   - type: input
     id: app_version
     attributes:
-      label: アプリのバージョン
-      description: "例: 1.2.0"
+      label: Application version / アプリのバージョン
+      description: "Example / 例: 1.2.0"
       placeholder: "1.2.0"
     validations:
       required: true
@@ -23,19 +25,19 @@ body:
   - type: dropdown
     id: install_type
     attributes:
-      label: 実行方法
+      label: Installation type / 実行方法
       options:
-        - インストーラー版
-        - Pythonソースから実行
-        - その他
+        - Installer / インストーラー版
+        - Python source / Pythonソースから実行
+        - Other / その他
     validations:
       required: true
 
   - type: input
     id: windows_version
     attributes:
-      label: Windowsのバージョン
-      description: "例: Windows 11 24H2 / Windows 10 22H2"
+      label: Windows version / Windowsのバージョン
+      description: "Example / 例: Windows 11 24H2 / Windows 10 22H2"
       placeholder: "Windows 11 24H2"
     validations:
       required: true
@@ -43,73 +45,73 @@ body:
   - type: dropdown
     id: office_installed
     attributes:
-      label: Microsoft Officeの有無
-      description: Word / Excel / PowerPoint 変換に関係する場合は必ず選択してください。
+      label: Microsoft Office availability / Microsoft Officeの有無
+      description: Select this when the issue involves Word, Excel, or PowerPoint conversion. / Office変換に関係する場合は必ず選択してください。
       options:
-        - インストール済み
-        - 未インストール
-        - 不明
-        - この不具合には関係しない
+        - Installed / インストール済み
+        - Not installed / 未インストール
+        - Unknown / 不明
+        - Not relevant / この不具合には関係しない
     validations:
       required: true
 
   - type: textarea
     id: summary
     attributes:
-      label: 不具合の概要
-      description: 何が起きたかを簡潔に書いてください。
-      placeholder: "例: PDF保存時にエラーダイアログが表示される"
+      label: Summary / 不具合の概要
+      description: Briefly describe what happened. / 何が起きたかを簡潔に書いてください。
+      placeholder: "Example / 例: An error appears when saving a PDF."
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: 再現手順
-      description: できるだけ具体的に書いてください。
+      label: Steps to reproduce / 再現手順
+      description: Provide specific steps where possible. / できるだけ具体的に書いてください。
       placeholder: |
-        1. アプリを起動する
-        2. ○○ファイルを追加する
-        3. 名前を付けて保存を実行する
-        4. エラーが表示される
+        1. Start the application / アプリを起動する
+        2. Add a file / ファイルを追加する
+        3. Save the combined PDF / PDFを保存する
+        4. The error appears / エラーが表示される
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: 期待した動作
-      placeholder: "例: エラーなくPDFが保存される"
+      label: Expected behavior / 期待した動作
+      placeholder: "Example / 例: The PDF is saved without an error."
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: 実際の動作
-      placeholder: "例: ○○というエラーが表示される"
+      label: Actual behavior / 実際の動作
+      placeholder: "Example / 例: An error message is displayed."
     validations:
       required: true
 
   - type: textarea
     id: files
     attributes:
-      label: 使用したファイルの種類
-      description: ファイル名そのものではなく、種類やページ数などを書いてください。非公開ファイルは添付しないでください。
+      label: Input file types / 使用したファイルの種類
+      description: Describe file types and page counts without including private filenames or files. / 種類やページ数を記載し、非公開ファイルは添付しないでください。
       placeholder: |
-        例:
-        - PDF 3ファイル、合計20ページ
-        - Word 1ファイル
-        - Excel 1ファイル、複数シートあり
+        Example / 例:
+        - 3 PDF files, 20 pages total / PDF 3ファイル、合計20ページ
+        - 1 Word file / Word 1ファイル
+        - 1 Excel file with multiple sheets / Excel 1ファイル、複数シート
 
   - type: textarea
     id: screenshots
     attributes:
-      label: スクリーンショット
-      description: 可能であれば、個人情報や業務情報を含まない画面を添付してください。
+      label: Screenshots / スクリーンショット
+      description: Attach screenshots only when they contain no personal or confidential information. / 個人情報や業務情報を含まない画面だけを添付してください。
 
   - type: textarea
     id: additional
     attributes:
-      label: 補足
-      description: ほかに伝えておきたいことがあれば書いてください。
+      label: Additional context / 補足
+      description: Add any other useful information. / ほかに伝えておきたいことがあれば書いてください。
