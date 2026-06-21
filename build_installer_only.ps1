@@ -99,6 +99,3 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "`n[ERROR] インストーラー作成に失敗しました。" -ForegroundColor Red
 }
 
-Read-Host "Enterキーを押して終了..."
-
-
