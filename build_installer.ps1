@@ -161,12 +161,12 @@ Write-Host " - ビルド完了" -ForegroundColor Green
 
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host "[4.5/5] 制限ポータブル版作成..."
+Write-Host "[4.5/5] ポータブル版作成..."
 Write-Host "========================================================"
 
 & ".\$PortableScriptName"
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n[ERROR] 制限ポータブル版の作成に失敗しました。" -ForegroundColor Red
+    Write-Host "`n[ERROR] ポータブル版の作成に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 

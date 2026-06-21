@@ -266,10 +266,10 @@ included.</p>
 <li>Reduce the thumbnail zoom level.</li>
 </ul>
 <hr />
-<h2>7. Restricted Portable Mode</h2>
-<p>The portable package contains <code>OfficePDFBinder.restricted-portable</code>. Keep this
+<h2>7. Portable Edition</h2>
+<p>The portable package contains <code>OfficePDFBinder.portable</code>. Keep this
 marker file next to the executable.</p>
-<p>In restricted portable mode, Office PDF Binder:</p>
+<p>In the portable edition, Office PDF Binder:</p>
 <ul>
 <li>does not save application settings in AppData;</li>
 <li>does not write its optional debug log to the user profile; and</li>
@@ -281,8 +281,8 @@ temporary folders, caches, or registry settings.</p>
 <hr />
 <h2>8. Development and Testing</h2>
 <p>Install runtime and development dependencies with:</p>
-<pre><code class="language-powershell">pip install -r requirements.txt
-pip install -r requirements-dev.txt
+<pre><code class="language-powershell">python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 </code></pre>
 <p>Run automated tests with:</p>
 <pre><code class="language-powershell">python -m pytest
@@ -307,7 +307,7 @@ used for the installer and the marker-based portable ZIP.</p>
 <ul>
 <li>Office PDF Binder: GNU Affero General Public License v3.0 (<code>LICENSE.txt</code>)</li>
 <li>Third-party components: see <code>NOTICE.txt</code></li>
-<li>Corresponding source: included as <code>source.zip</code> in installer distributions</li>
+<li>Corresponding source: included as <code>source.zip</code> in both installer and portable packages</li>
 </ul>
 <hr />
 <p>Copyright (C) 2026 Takeshi Kashiwagi</p>
