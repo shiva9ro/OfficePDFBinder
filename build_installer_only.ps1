@@ -28,8 +28,11 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[1/3] クリーンアップ（dist は削除しません）..."
 Write-Host "========================================================"
 
-# 既存の Nuitka 配布フォルダは残し、インストーラー出力だけ更新します。
-if (Test-Path "Output")    { Remove-Item -Recurse -Force "Output" }
+# 既存の Nuitka 配布フォルダとポータブル成果物は残し、インストーラーだけ更新します。
+if (Test-Path "Output") {
+    Get-ChildItem -LiteralPath "Output" -Filter "OfficePDFBinder_Setup_*.exe" -File |
+        Remove-Item -Force
+}
 if (Test-Path "source.zip"){ Remove-Item -Force "source.zip" }
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
@@ -49,17 +52,22 @@ if (Test-Path "convert_readme.py") {
 
 $SourceFiles = @(
     "OfficePDFBinder_Main.py",
+    "i18n.py",
     $IssFile,
     "app.ico",
     $VersionFile,
     "LICENSE.txt",
     "NOTICE.txt",
+    "build.ps1",
     "build_installer.ps1",
     "build_portable.ps1",
     $SelfScriptName,
     "convert_readme.py",
     "README.md",
     "README.html",
+    "README.en.md",
+    "README.en.html",
+    "translations\OfficePDFBinder_en.ts",
     "docs\images"
 )
 

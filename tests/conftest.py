@@ -9,6 +9,7 @@ from PySide6.QtGui import QIcon
 
 # Keep GUI tests independent from the interactive Windows desktop.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("OFFICEPDFBINDER_LANGUAGE", "ja")
 
 
 @pytest.fixture

@@ -15,8 +15,8 @@ body:
     id: app_version
     attributes:
       label: アプリのバージョン
-      description: "例: 1.1.0"
-      placeholder: "1.1.0"
+      description: "例: 1.2.0"
+      placeholder: "1.2.0"
     validations:
       required: true
 

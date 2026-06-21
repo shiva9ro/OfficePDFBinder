@@ -30,7 +30,14 @@ if (-not (Test-Path -LiteralPath $DistDir -PathType Container)) {
     exit 1
 }
 
-$RequiredFiles = @("README.md", "README.html", "LICENSE.txt", "NOTICE.txt")
+$RequiredFiles = @(
+    "README.md",
+    "README.html",
+    "README.en.md",
+    "README.en.html",
+    "LICENSE.txt",
+    "NOTICE.txt"
+)
 foreach ($File in $RequiredFiles) {
     if (-not (Test-Path -LiteralPath $File -PathType Leaf)) {
         Write-Host "[ERROR] 配布に必要なファイルがありません: $File" -ForegroundColor Red

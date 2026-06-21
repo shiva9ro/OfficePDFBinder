@@ -85,7 +85,7 @@ def test_add_broken_pdf_reports_error(tmp_path):
     worker._run_add_files([str(broken)])
 
     assert not item_batches
-    assert errors[0][0] == "PDFファイルを読み込めませんでした"
+    assert errors[0][0] == "PDFファイルを読み込めません"
     assert "broken.pdf" in errors[0][1]
 
 
@@ -99,9 +99,7 @@ def test_cancelled_add_reports_cancelled_without_processing(pdf_factory):
     worker._run_add_files([str(source)])
 
     assert not item_batches
-    assert finished == [
-        ("中止", "中止", "処理が中止されました。")
-    ]
+    assert finished == [("cancelled", "中止", "処理を中止しました。")]
 
 
 def test_merge_preserves_requested_page_order_rotation_and_bookmarks(
@@ -273,7 +271,7 @@ def test_failed_office_conversion_is_reported_but_pdf_is_saved(
         assert document.page_count == 1
         assert "PDF-PAGE" in document[0].get_text()
     assert "failed.docx" in finished[-1][2]
-    assert "スキップしました" in finished[-1][2]
+    assert "除外しました" in finished[-1][2]
 
 
 def test_export_image_creates_jpeg_and_avoids_overwrite(pdf_factory, tmp_path):
