@@ -27,6 +27,8 @@ are added as files and converted to PDF when the combined PDF is saved.
 
 - Load, reorder, delete, and rotate individual PDF pages
 - Add Word, Excel, and PowerPoint documents as files and convert them when saving
+- Add image files as A4 PDF pages
+- Insert A4 portrait blank pages
 - Add files with a file dialog, drag and drop, or Windows Explorer
 - Reorder, delete, and rotate PDF pages
 - Reorder multiple selected pages by dragging them together
@@ -36,14 +38,18 @@ are added as files and converted to PDF when the combined PDF is saved.
 - Add, rename, delete, and navigate manual bookmarks
 - Add headers, footers, dates, and page numbers
 - Export selected pages as a PDF
-- Export selected PDF pages as JPEG images at 300 dpi
+- Export selected PDF pages as JPEG images at 96, 150, 300, or 600 dpi
+- Create one PDF per subfolder in batch mode
+- Remove comments, drawings, and highlights stored as PDF annotations
+- Suppress Word comments and tracked changes, and Excel comments when converting to PDF
+- Prevent small images from being enlarged when converting images to PDF pages
 - Open the original file by double-clicking a page
 - Five thumbnail zoom levels with Ctrl+mouse wheel support
 - Undo and redo up to 15 changes
 
 Supported extensions:
 
-`.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm`
+`.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp`
 
 ---
 
@@ -127,16 +133,88 @@ is saved.
 - Select **File > Export Selected Pages as PDF** to create a PDF containing
   only the selected pages.
 - Select **File > Export Selected Pages as Images** to export selected PDF pages
-  as JPEG images at 300 dpi.
+  as JPEG images at 96, 150, 300, or 600 dpi. The default is 300 dpi.
 - Word, Excel, and PowerPoint items cannot be exported as images.
 
-### 4.8 Combine and save
+Use **Edit > Organize Pages > Insert Blank Page** to insert an A4 portrait blank
+page. If a page is selected, the blank page is inserted after the selected page;
+otherwise it is added to the end.
+
+Image files are added as single A4 pages. Landscape images use A4 landscape,
+and portrait or square images use A4 portrait. The image is centered on the page
+while preserving its aspect ratio.
+
+Enable **Settings > Do Not Enlarge Small Images** to keep small images at or
+below their 96 dpi reference size. Images larger than the printable area are
+still reduced to fit the A4 page.
+
+### 4.8 Output cleanup settings
+
+- Enable **Settings > Remove PDF Comments and Markups** to exclude comments,
+  drawings, highlights, and other objects stored as PDF annotations from the
+  saved PDF. Text or drawings already flattened into page contents are not
+  removed.
+- Enable **Settings > Suppress Word Comments and Tracked Changes, and Excel
+  Comments in PDFs** to suppress Word comments/tracked changes and Excel
+  printed comments during PDF conversion. PowerPoint files are converted
+  normally.
+
+### 4.9 Combine and save
 
 Select **File > Save As** or press `Ctrl+S`. Choose an output path, and Office
 PDF Binder combines the current list into one PDF.
 
 After saving, the PDF opens in the default PDF viewer. The application then
 asks whether to clear the current list.
+
+### 4.10 Create PDFs by subfolder
+
+Select **Batch > Create PDFs by Subfolder** to create one PDF for each
+subfolder directly under a selected parent folder.
+
+- Files directly inside each subfolder are combined in filename order.
+- Nested subfolders are not searched.
+- Unsupported files are skipped and recorded in a CSV log.
+- Existing PDFs are skipped by default, unless overwrite is enabled.
+- The CSV log is written to the output folder using UTF-8 with BOM for Excel.
+
+### 4.11 Command-line batch processing
+
+The same batch operation can be run from PowerShell or a BAT file.
+
+```powershell
+$cliArgs = @(
+  "--batch-subfolders"
+  '--input-root="C:\Work\Input"'
+  '--output-root="C:\Work\Output"'
+)
+$process = Start-Process `
+  -FilePath ".\OfficePDFBinder_Main.exe" `
+  -ArgumentList $cliArgs `
+  -Wait -PassThru -NoNewWindow
+$process.ExitCode
+```
+
+The PDFs and UTF-8 BOM CSV log are written to the specified output folder. CLI
+mode uses its command-line options and fixed defaults instead of saved GUI
+settings. `Start-Process -Wait -PassThru` ensures that PowerShell waits for the
+GUI-format executable and receives its exit code.
+
+Available options:
+
+```text
+--auto-bookmarks / --no-auto-bookmarks
+--show-bookmarks-on-open / --no-show-bookmarks-on-open
+--remove-pdf-annotations
+--suppress-office-markup
+--disable-image-upscaling
+--overwrite
+```
+
+Exit codes are `0` only when every subfolder succeeds, `1` when any result is
+Warning, Skipped, or Error, `2` for invalid arguments, `3` when the input
+folder is missing, `4` when there are no subfolders, `5` when the log cannot
+be written, and `9` for an unexpected error.
 
 ---
 
@@ -240,6 +318,9 @@ existing distribution directory.
 
 The Nuitka application is compiled once. The same distribution directory is
 used for the installer and the marker-based portable ZIP.
+
+Supporting build scripts are stored in `scripts/`, and the Inno Setup definition
+is stored in `packaging/`. Run `build.ps1` from the project root.
 
 ---
 

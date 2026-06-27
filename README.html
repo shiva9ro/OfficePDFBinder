@@ -97,6 +97,8 @@ are added as files and converted to PDF when the combined PDF is saved.</p>
 <ul>
 <li>Load, reorder, delete, and rotate individual PDF pages</li>
 <li>Add Word, Excel, and PowerPoint documents as files and convert them when saving</li>
+<li>Add image files as A4 PDF pages</li>
+<li>Insert A4 portrait blank pages</li>
 <li>Add files with a file dialog, drag and drop, or Windows Explorer</li>
 <li>Reorder, delete, and rotate PDF pages</li>
 <li>Reorder multiple selected pages by dragging them together</li>
@@ -106,13 +108,17 @@ are added as files and converted to PDF when the combined PDF is saved.</p>
 <li>Add, rename, delete, and navigate manual bookmarks</li>
 <li>Add headers, footers, dates, and page numbers</li>
 <li>Export selected pages as a PDF</li>
-<li>Export selected PDF pages as JPEG images at 300 dpi</li>
+<li>Export selected PDF pages as JPEG images at 96, 150, 300, or 600 dpi</li>
+<li>Create one PDF per subfolder in batch mode</li>
+<li>Remove comments, drawings, and highlights stored as PDF annotations</li>
+<li>Suppress Word comments and tracked changes, and Excel comments when converting to PDF</li>
+<li>Prevent small images from being enlarged when converting images to PDF pages</li>
 <li>Open the original file by double-clicking a page</li>
 <li>Five thumbnail zoom levels with Ctrl+mouse wheel support</li>
 <li>Undo and redo up to 15 changes</li>
 </ul>
 <p>Supported extensions:</p>
-<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm</code></p>
+<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp</code></p>
 <hr />
 <h2>3. Installation and Portable Version</h2>
 <p>Download the latest installer or portable ZIP from GitHub Releases.</p>
@@ -183,14 +189,73 @@ is saved.</p>
 <li>Select <strong>File &gt; Export Selected Pages as PDF</strong> to create a PDF containing
   only the selected pages.</li>
 <li>Select <strong>File &gt; Export Selected Pages as Images</strong> to export selected PDF pages
-  as JPEG images at 300 dpi.</li>
+  as JPEG images at 96, 150, 300, or 600 dpi. The default is 300 dpi.</li>
 <li>Word, Excel, and PowerPoint items cannot be exported as images.</li>
 </ul>
-<h3>4.8 Combine and save</h3>
+<p>Use <strong>Edit &gt; Organize Pages &gt; Insert Blank Page</strong> to insert an A4 portrait blank
+page. If a page is selected, the blank page is inserted after the selected page;
+otherwise it is added to the end.</p>
+<p>Image files are added as single A4 pages. Landscape images use A4 landscape,
+and portrait or square images use A4 portrait. The image is centered on the page
+while preserving its aspect ratio.</p>
+<p>Enable <strong>Settings &gt; Do Not Enlarge Small Images</strong> to keep small images at or
+below their 96 dpi reference size. Images larger than the printable area are
+still reduced to fit the A4 page.</p>
+<h3>4.8 Output cleanup settings</h3>
+<ul>
+<li>Enable <strong>Settings &gt; Remove PDF Comments and Markups</strong> to exclude comments,
+  drawings, highlights, and other objects stored as PDF annotations from the
+  saved PDF. Text or drawings already flattened into page contents are not
+  removed.</li>
+<li>Enable <strong>Settings &gt; Suppress Word Comments and Tracked Changes, and Excel
+  Comments in PDFs</strong> to suppress Word comments/tracked changes and Excel
+  printed comments during PDF conversion. PowerPoint files are converted
+  normally.</li>
+</ul>
+<h3>4.9 Combine and save</h3>
 <p>Select <strong>File &gt; Save As</strong> or press <code>Ctrl+S</code>. Choose an output path, and Office
 PDF Binder combines the current list into one PDF.</p>
 <p>After saving, the PDF opens in the default PDF viewer. The application then
 asks whether to clear the current list.</p>
+<h3>4.10 Create PDFs by subfolder</h3>
+<p>Select <strong>Batch &gt; Create PDFs by Subfolder</strong> to create one PDF for each
+subfolder directly under a selected parent folder.</p>
+<ul>
+<li>Files directly inside each subfolder are combined in filename order.</li>
+<li>Nested subfolders are not searched.</li>
+<li>Unsupported files are skipped and recorded in a CSV log.</li>
+<li>Existing PDFs are skipped by default, unless overwrite is enabled.</li>
+<li>The CSV log is written to the output folder using UTF-8 with BOM for Excel.</li>
+</ul>
+<h3>4.11 Command-line batch processing</h3>
+<p>The same batch operation can be run from PowerShell or a BAT file.</p>
+<pre><code class="language-powershell">$cliArgs = @(
+  &quot;--batch-subfolders&quot;
+  '--input-root=&quot;C:\Work\Input&quot;'
+  '--output-root=&quot;C:\Work\Output&quot;'
+)
+$process = Start-Process `
+  -FilePath &quot;.\OfficePDFBinder_Main.exe&quot; `
+  -ArgumentList $cliArgs `
+  -Wait -PassThru -NoNewWindow
+$process.ExitCode
+</code></pre>
+<p>The PDFs and UTF-8 BOM CSV log are written to the specified output folder. CLI
+mode uses its command-line options and fixed defaults instead of saved GUI
+settings. <code>Start-Process -Wait -PassThru</code> ensures that PowerShell waits for the
+GUI-format executable and receives its exit code.</p>
+<p>Available options:</p>
+<pre><code class="language-text">--auto-bookmarks / --no-auto-bookmarks
+--show-bookmarks-on-open / --no-show-bookmarks-on-open
+--remove-pdf-annotations
+--suppress-office-markup
+--disable-image-upscaling
+--overwrite
+</code></pre>
+<p>Exit codes are <code>0</code> only when every subfolder succeeds, <code>1</code> when any result is
+Warning, Skipped, or Error, <code>2</code> for invalid arguments, <code>3</code> when the input
+folder is missing, <code>4</code> when there are no subfolders, <code>5</code> when the log cannot
+be written, and <code>9</code> for an unexpected error.</p>
 <hr />
 <h2>5. Keyboard Shortcuts</h2>
 <table>
@@ -302,6 +367,8 @@ installer. <code>Package</code> skips Nuitka and regenerates only the installer 
 existing distribution directory.</p>
 <p>The Nuitka application is compiled once. The same distribution directory is
 used for the installer and the marker-based portable ZIP.</p>
+<p>Supporting build scripts are stored in <code>scripts/</code>, and the Inno Setup definition
+is stored in <code>packaging/</code>. Run <code>build.ps1</code> from the project root.</p>
 <hr />
 <h2>9. License</h2>
 <ul>

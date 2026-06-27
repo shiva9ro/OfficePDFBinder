@@ -3,6 +3,10 @@
 """日本語・英語READMEをアプリ内マニュアル用HTMLへ変換する。"""
 
 import markdown
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # HTML テンプレート
 html_template = """<!DOCTYPE html>
@@ -88,7 +92,9 @@ html_template = """<!DOCTYPE html>
 
 
 def convert_readme(source, destination, lang, title):
-    with open(source, "r", encoding="utf-8") as source_file:
+    source_path = PROJECT_ROOT / source
+    destination_path = PROJECT_ROOT / destination
+    with source_path.open("r", encoding="utf-8") as source_file:
         markdown_content = source_file.read()
     html_body = markdown.markdown(
         markdown_content, extensions=["tables", "fenced_code"]
@@ -97,7 +103,7 @@ def convert_readme(source, destination, lang, title):
     html_body = html_body.replace('href="README.ja.md"', 'href="README.ja.html"')
     html_body = html_body.replace('href="README.md"', 'href="README.html"')
     html_content = html_template.format(lang=lang, title=title, body=html_body)
-    with open(destination, "w", encoding="utf-8") as destination_file:
+    with destination_path.open("w", encoding="utf-8") as destination_file:
         destination_file.write(html_content)
     print(f"{destination} を生成しました。")
 

@@ -26,17 +26,17 @@ $AppVersion = $Matches[1]
 
 if (-not (Test-Path -LiteralPath $DistDir -PathType Container)) {
     Write-Host "[ERROR] Nuitka配布フォルダーがありません: $DistDir" -ForegroundColor Red
-    Write-Host "先に build_installer.ps1 でビルドしてください。" -ForegroundColor Yellow
+    Write-Host "先に build.ps1 -Mode Fast または Release でビルドしてください。" -ForegroundColor Yellow
     exit 1
 }
 
-& python ".\convert_readme.py"
+& python ".\scripts\convert_readme.py"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] README の HTML 変換に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-& ".\create_source_archive.ps1"
+& ".\scripts\create_source_archive.ps1"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE

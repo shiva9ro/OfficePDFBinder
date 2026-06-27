@@ -14,7 +14,7 @@ GitHub Actionsで再現できない項目は手動で確認します。
 ### 実行方法
 
 ```powershell
-pip install -r requirements.txt -r requirements-dev.txt
+python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest
 ```
 
@@ -38,13 +38,17 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 
 | ファイル | 件数 | 主な確認内容 |
 |---|---:|---|
-| `tests/test_gui_operations.py` | 13 | ページ移動、回転、削除、Undo/Redo、しおり、重複判定、自然順、状態表示、キャンセル |
+| `tests/test_cli.py` | 8 | CLI引数、既存一括処理への設定引き渡し、汎用フォルダ名、CSVログ、終了コード |
+| `tests/test_gui_operations.py` | 19 | ページ移動、回転、削除、Undo/Redo、しおり、重複判定、自然順、状態表示、キャンセル、一括処理ダイアログ、画像書き出しDPI |
+| `tests/test_i18n.py` | 12 | 言語判定、英語翻訳、README/HTMLマニュアル、ビルド補助ファイル |
+| `tests/test_i18n_source_audit.py` | 1 | ユーザー表示文字列が翻訳対象になっていること |
 | `tests/test_page_number_format.py` | 4 | ページ番号4形式 |
 | `tests/test_page_number_pdf.py` | 12 | 4形式、回転4方向、横長・既存回転・CropBox・スキャンPDFを実PDFで確認 |
 | `tests/test_settings.py` | 3 | 設定保存、読込、破損設定からの継続 |
+| `tests/test_runtime_mode.py` | 5 | 通常版/ポータブル版の実行時パス、設定保存先、一時PDF作成先 |
 | `tests/test_ui_baseline.py` | 2 | 日本語UIとヘッダー・フッター設定の現行仕様 |
-| `tests/test_worker_pdf.py` | 13 | PDF読込、異常系、結合、回転、しおり、Office変換制御、画像出力 |
-| **合計** | **47** | |
+| `tests/test_worker_pdf.py` | 34 | PDF読込、異常系、結合、回転、しおり、Office変換制御、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
+| **合計** | **100** | |
 
 `tests/conftest.py` はテストデータとGUI環境を準備するファイルで、テスト件数には含みません。
 テスト用PDFは実行時に一時フォルダーへ生成し、リポジトリには実データを置きません。
@@ -61,6 +65,9 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] PowerPointの横長・縦長スライドを読み込める
 - [ ] Word、Excel、PowerPoint、PDFを混在させて順番どおり保存できる
 - [ ] 日本語フォント、図形、画像、表を含む文書の見た目を確認する
+- [ ] Wordのコメント・変更履歴が、設定ONでPDFに出ないことを確認する
+- [ ] Excelのコメント・メモが、設定ONで印刷/PDF出力されないことを確認する
+- [ ] PowerPointは設定ONでも通常どおりPDF化され、保存確認ダイアログが出ない
 - [ ] Officeファイルを開いた状態でのエラー表示を確認する
 - [ ] パスワード保護・破損ファイルで明確なエラーを表示する
 - [ ] 変換後にWord、Excel、PowerPointのプロセスが残らない
@@ -74,6 +81,10 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] 長い日本語ファイル名、空白、記号を含むパスを扱える
 - [ ] しおりの追加、名前変更、削除、移動後の追従を確認する
 - [ ] ヘッダー、フッター、日付、ページ番号の位置を目視確認する
+- [ ] 画像ファイルを追加し、横長はA4横、縦長はA4縦になることを確認する
+- [ ] `小さい画像を拡大しない` のON/OFFで画像サイズが変わることを確認する
+- [ ] 空白ページを挿入し、保存PDFに空白ページが含まれることを確認する
+- [ ] PDF注釈付きPDFで、注釈除去ON/OFFの出力差を確認する
 - [ ] 保存、画像書き出し、キャンセルの完了表示を確認する
 
 ### 3.3 単一起動・エクスプローラー連携
@@ -99,7 +110,24 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] ポータブル版のOffice変換用一時PDFが元ファイルと同じ場所に作られ、処理後に削除される
 - [ ] マーカーなしの通常版は従来どおり設定を保存・復元できる
 
-### 3.5 性能・大容量
+### 3.5 一括処理
+
+- [ ] 親フォルダを選ぶと、出力フォルダにも同じパスが初期設定される
+- [ ] サブフォルダごとに、直下の対応ファイルだけがファイル名順でPDF化される
+- [ ] 未対応ファイルがCSVログに記録される
+- [ ] 既存PDFがある場合、上書きOFFではスキップされる
+- [ ] 既存PDFがある場合、上書きONではPDFが置き換わる
+- [ ] 一括処理でも自動しおり設定、しおり表示設定、PDF注釈除去、画像拡大抑制、Word/Excelレビュー情報抑制が反映される
+
+### 3.6 CLI一括処理
+
+- [ ] PowerShellから`OfficePDFBinder_Main.exe --batch-subfolders`を実行できる
+- [ ] CLI実行中にGUIウィンドウや新しいコンソールウィンドウが表示されない
+- [ ] 標準出力に処理件数とログパスが表示され、`$LASTEXITCODE`が結果と一致する
+- [ ] CLIオプションで、しおり、注釈除去、画像拡大抑制、Word/Excelレビュー情報抑制を切り替えられる
+- [ ] portable版とインストーラー版で同じCLI引数を使用できる
+
+### 3.7 性能・大容量
 
 - [ ] 100ページ程度のPDFを操作・保存できる
 - [ ] 500ページ以上では操作時間とメモリ使用量を記録する
@@ -114,7 +142,7 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 | 項目 | 記録内容 |
 |---|---|
 | 実施日 | YYYY-MM-DD |
-| バージョン／コミット | 例: v1.2.0 / commit hash |
+| バージョン／コミット | 例: v1.3.0 / commit hash |
 | Windows | Windows 10 または 11、ビルド番号 |
 | Office | Microsoft 365 / Office 2021等、32/64bit |
 | 結果 | 合格／条件付き合格／不合格 |
