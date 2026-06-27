@@ -1,5 +1,7 @@
+import argparse
 import configparser
 import copy
+import csv
 import os
 import re
 import shutil
@@ -9,10 +11,12 @@ import tempfile
 import time
 from datetime import datetime
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
 
 import fitz
 from PIL import Image, ImageDraw, ImageFont
 from PySide6.QtCore import (
+    QCoreApplication,
     QEvent,
     QMimeData,
     QObject,
@@ -126,9 +130,7 @@ def _is_portable_mode():
 def _create_office_temp_pdf_path(office_path):
     """実行モードに応じた場所へ、重複しないOffice変換用PDFを確保する。"""
     temp_dir = (
-        os.path.dirname(os.path.abspath(office_path))
-        if _is_portable_mode()
-        else None
+        os.path.dirname(os.path.abspath(office_path)) if _is_portable_mode() else None
     )
     handle = tempfile.NamedTemporaryFile(
         suffix=".pdf",
@@ -147,13 +149,22 @@ SUPPORTED_WORD = (".docx", ".doc", ".docm")
 SUPPORTED_EXCEL = (".xlsx", ".xls", ".xlsm")
 SUPPORTED_POWERPOINT = (".pptx", ".ppt", ".pptm")
 SUPPORTED_PDF = (".pdf",)
+SUPPORTED_IMAGE = (".png", ".jpg", ".jpeg", ".bmp")
 ALL_SUPPORTED_EXTENSIONS = (
-    SUPPORTED_PDF + SUPPORTED_WORD + SUPPORTED_EXCEL + SUPPORTED_POWERPOINT
+    SUPPORTED_PDF
+    + SUPPORTED_WORD
+    + SUPPORTED_EXCEL
+    + SUPPORTED_POWERPOINT
+    + SUPPORTED_IMAGE
 )
 
 # Officeファイル変換用の定数（Microsoft Office COM定数）
 WORD_SAVE_AS_PDF_FORMAT = 17  # wdFormatPDF
+WORD_EXPORT_FORMAT_PDF = 17  # wdExportFormatPDF
+WORD_EXPORT_DOCUMENT_CONTENT = 0  # wdExportDocumentContent
+WORD_EXPORT_CREATE_NO_BOOKMARKS = 0  # wdExportCreateNoBookmarks
 EXCEL_EXPORT_PDF_TYPE = 0  # xlTypePDF
+EXCEL_PRINT_NO_COMMENTS = -4142  # xlPrintNoComments
 POWERPOINT_SAVE_AS_PDF_FORMAT = 32  # ppSaveAsPDF
 
 # ディスク容量チェック
@@ -165,6 +176,16 @@ THUMBNAIL_HEIGHT = 212
 GRID_ITEM_PADDING_X = 20
 GRID_ITEM_PADDING_Y = 40
 MAX_HISTORY = 15
+IMAGE_EXPORT_DPI_OPTIONS = (96, 150, 300, 600)
+DEFAULT_IMAGE_EXPORT_DPI = 300
+BLANK_PAGE_WIDTH = 595  # A4 portrait width in PDF points
+BLANK_PAGE_HEIGHT = 842  # A4 portrait height in PDF points
+IMAGE_PAGE_MARGIN = 18
+IMAGE_UPSCALING_REFERENCE_DPI = 96
+
+
+class BatchLogWriteError(OSError):
+    """一括処理ログを書き込めなかったことを表す。"""
 
 
 class DropListWidget(QListWidget):
@@ -658,6 +679,8 @@ class AppWorker(QRunnable):
                 self._run_merge_save(**self.kwargs)
             elif self.task_name == "export_images":
                 self._run_export_images(**self.kwargs)
+            elif self.task_name == "batch_merge_subfolders":
+                self._run_batch_merge_subfolders(**self.kwargs)
         except Exception as e:
             self.signals.error.emit(
                 translate("Worker", "予期しないエラー"),
@@ -786,6 +809,27 @@ class AppWorker(QRunnable):
                         "original_path": path,
                     }
                 )
+            elif file_ext in SUPPORTED_IMAGE:
+                try:
+                    with Image.open(path) as image:
+                        image.verify()
+                    self.signals.item_ready.emit(
+                        {
+                            "type": "image",
+                            "path": path,
+                            "rotation": 0,
+                            "original_path": path,
+                            "page_num": 0,
+                        }
+                    )
+                except Exception as e:
+                    self.signals.error.emit(
+                        translate("Worker", "画像ファイルを読み込めません"),
+                        translate(
+                            "Worker",
+                            "'{name}'を画像として読み込めませんでした。ファイルが破損しているか、未対応の画像形式である可能性があります。\n\nエラー詳細: {error}",
+                        ).format(name=os.path.basename(path), error=e),
+                    )
         if self.is_running:
             self.signals.progress.emit(
                 100, translate("Worker", "ファイルの読み込みが完了しました。")
@@ -808,16 +852,28 @@ class AppWorker(QRunnable):
         output_path,
         bookmarks=None,
         show_outlines=True,
+        remove_pdf_annotations=False,
+        disable_image_upscaling=False,
+        suppress_office_markup=False,
         page_number_settings=None,
         header_footer_settings=None,
+        emit_completion=True,
+        emit_progress=True,
+        collected_errors=None,
     ):
+        def report_error(title, message):
+            if collected_errors is not None:
+                collected_errors.append((title, message))
+            else:
+                self.signals.error.emit(title, message)
+
         # 出力ディレクトリのアクセス権限チェック
         output_dir = os.path.dirname(output_path)
         if not os.path.exists(output_dir):
             try:
                 os.makedirs(output_dir, exist_ok=True)
             except Exception as e:
-                self.signals.error.emit(
+                report_error(
                     translate("Worker", "保存先フォルダーを作成できません"),
                     translate(
                         "Worker",
@@ -827,7 +883,7 @@ class AppWorker(QRunnable):
                 return
 
         if not os.access(output_dir, os.W_OK):
-            self.signals.error.emit(
+            report_error(
                 translate("Worker", "保存先に書き込めません"),
                 translate(
                     "Worker",
@@ -841,7 +897,7 @@ class AppWorker(QRunnable):
             stat = shutil.disk_usage(output_dir)
             free_space_mb = stat.free / (1024 * 1024)
             if free_space_mb < MIN_FREE_SPACE_MB:
-                self.signals.error.emit(
+                report_error(
                     translate("Worker", "ディスクの空き容量が不足しています"),
                     translate(
                         "Worker",
@@ -899,6 +955,9 @@ class AppWorker(QRunnable):
                         "type": item_type,
                         "pages_to_add": [],
                         "rotations": {},
+                        "display_name": item.get("display_name"),
+                        "width": item.get("width"),
+                        "height": item.get("height"),
                     }
 
                 # PDFの場合はページ番号を追加
@@ -906,6 +965,11 @@ class AppWorker(QRunnable):
                     page_num = item["page_num"]
                     current_task["pages_to_add"].append(page_num)
                     current_task["rotations"][page_num] = item.get("rotation", 0)
+                elif item_type == "blank":
+                    current_task["pages_to_add"].append(0)
+                elif item_type == "image":
+                    current_task["pages_to_add"].append(0)
+                    current_task["rotations"][0] = item.get("rotation", 0)
 
             # 最後のタスクを保存
             if current_task:
@@ -948,7 +1012,10 @@ class AppWorker(QRunnable):
 
                     if converter:
                         temp_pdf, app_instance = converter(
-                            path, app_instance, suppress_errors=True
+                            path,
+                            app_instance,
+                            suppress_errors=True,
+                            suppress_office_markup=suppress_office_markup,
                         )
                         office_apps[office_type] = (
                             app_instance  # 更新されたインスタンスを保存
@@ -997,15 +1064,96 @@ class AppWorker(QRunnable):
             for i, (path, task) in enumerate(all_tasks):
                 if not self.is_running:
                     break
-                self.signals.progress.emit(
-                    int(((i + 1) / total_files) * 100),
-                    translate("Worker", "処理中: {name}").format(
-                        name=os.path.basename(path)
-                    ),
-                )
+                if emit_progress:
+                    self.signals.progress.emit(
+                        int(((i + 1) / total_files) * 100),
+                        translate("Worker", "処理中: {name}").format(
+                            name=task.get("display_name") or os.path.basename(path)
+                        ),
+                    )
 
                 # このファイルのページが挿入される前の総ページ数を、しおりの開始位置として使う。
                 page_offset_for_bookmark = final_doc.page_count
+
+                if task["type"] == "blank":
+                    file_bookmarks = bookmark_map.get(path, [])
+                    for bm in file_bookmarks:
+                        pending_toc_entries.append(
+                            {
+                                "title": bm.get("title", translate("Worker", "無題")),
+                                "page_index": page_offset_for_bookmark,
+                            }
+                        )
+                    final_doc.new_page(
+                        width=task.get("width") or BLANK_PAGE_WIDTH,
+                        height=task.get("height") or BLANK_PAGE_HEIGHT,
+                    )
+                    continue
+
+                if task["type"] == "image":
+                    file_bookmarks = bookmark_map.get(path, [])
+                    for bm in file_bookmarks:
+                        pending_toc_entries.append(
+                            {
+                                "title": bm.get("title", translate("Worker", "無題")),
+                                "page_index": page_offset_for_bookmark,
+                            }
+                        )
+
+                    try:
+                        with Image.open(path) as image:
+                            image_width, image_height = image.size
+                        if image_width <= 0 or image_height <= 0:
+                            raise ValueError("Invalid image size")
+                        for _ in task["pages_to_add"] or [0]:
+                            if image_width > image_height:
+                                page_width = BLANK_PAGE_HEIGHT
+                                page_height = BLANK_PAGE_WIDTH
+                            else:
+                                page_width = BLANK_PAGE_WIDTH
+                                page_height = BLANK_PAGE_HEIGHT
+                            page = final_doc.new_page(
+                                width=page_width, height=page_height
+                            )
+                            page_rect = fitz.Rect(0, 0, page_width, page_height)
+                            content_rect = fitz.Rect(
+                                IMAGE_PAGE_MARGIN,
+                                IMAGE_PAGE_MARGIN,
+                                page_width - IMAGE_PAGE_MARGIN,
+                                page_height - IMAGE_PAGE_MARGIN,
+                            )
+                            scale = min(
+                                content_rect.width / image_width,
+                                content_rect.height / image_height,
+                            )
+                            if disable_image_upscaling:
+                                scale = min(
+                                    scale,
+                                    72 / IMAGE_UPSCALING_REFERENCE_DPI,
+                                )
+                            draw_width = image_width * scale
+                            draw_height = image_height * scale
+                            target_rect = fitz.Rect(
+                                page_rect.x0 + (page_rect.width - draw_width) / 2,
+                                page_rect.y0 + (page_rect.height - draw_height) / 2,
+                                page_rect.x0 + (page_rect.width + draw_width) / 2,
+                                page_rect.y0 + (page_rect.height + draw_height) / 2,
+                            )
+                            page.insert_image(target_rect, filename=path)
+                            rotation = task["rotations"].get(0, 0)
+                            if rotation:
+                                page.set_rotation(rotation)
+                    except Exception as e:
+                        while final_doc.page_count > page_offset_for_bookmark:
+                            final_doc.delete_page(page_offset_for_bookmark)
+                        report_error(
+                            translate("Worker", "画像ファイルを読み込めません"),
+                            translate(
+                                "Worker",
+                                "'{name}'を画像として読み込めませんでした。ファイルが破損しているか、未対応の画像形式である可能性があります。\n\nエラー詳細: {error}",
+                            ).format(name=os.path.basename(path), error=e),
+                        )
+                    continue
 
                 # Officeファイルの場合は変換済みPDFを使用
                 if task["type"] in ("word", "excel", "powerpoint"):
@@ -1095,7 +1243,10 @@ class AppWorker(QRunnable):
                 for page_num in pages_to_insert:
                     page_offset = final_doc.page_count
                     final_doc.insert_pdf(
-                        source_doc, from_page=page_num, to_page=page_num
+                        source_doc,
+                        from_page=page_num,
+                        to_page=page_num,
+                        annots=not remove_pdf_annotations,
                     )
                     rotation = task["rotations"].get(page_num, 0)
                     if rotation != 0:
@@ -1231,11 +1382,12 @@ class AppWorker(QRunnable):
                             f"回転={page.rotation}"
                         )
 
-                self.signals.progress.emit(
-                    95, translate("Worker", "PDFを最適化して保存中...")
-                )
+                if emit_progress:
+                    self.signals.progress.emit(
+                        95, translate("Worker", "PDFを最適化して保存中...")
+                    )
                 if final_doc.page_count == 0:
-                    self.signals.error.emit(
+                    report_error(
                         translate("Worker", "保存できるページがありません"),
                         translate(
                             "Worker",
@@ -1247,22 +1399,22 @@ class AppWorker(QRunnable):
 
                 # 保存後の回転状態を確認（保存したファイルを再度開いて確認）
                 try:
-                    saved_doc = fitz.open(output_path)
-                    _debug_log(
-                        f"[ROTATION DEBUG] 保存後（ファイル再読み込み）: 総ページ数={saved_doc.page_count}"
-                    )
-                    for page_idx in range(saved_doc.page_count):
-                        page = saved_doc[page_idx]
-                        if page.rotation != 0:
-                            _debug_log(
-                                f"[ROTATION DEBUG] 保存後の回転: "
-                                f"ページインデックス={page_idx}, "
-                                f"回転={page.rotation}"
-                            )
-                    saved_doc.close()
+                    with fitz.open(output_path) as saved_doc:
+                        _debug_log(
+                            f"[ROTATION DEBUG] 保存後（ファイル再読み込み）: 総ページ数={saved_doc.page_count}"
+                        )
+                        for page_idx in range(saved_doc.page_count):
+                            page = saved_doc[page_idx]
+                            if page.rotation != 0:
+                                _debug_log(
+                                    f"[ROTATION DEBUG] 保存後の回転: "
+                                    f"ページインデックス={page_idx}, "
+                                    f"回転={page.rotation}"
+                                )
                 except Exception as e:
                     _debug_log(f"[ROTATION DEBUG] 保存後の確認エラー: {e}")
-                self.signals.progress.emit(100, translate("Worker", "保存完了"))
+                if emit_progress:
+                    self.signals.progress.emit(100, translate("Worker", "保存完了"))
                 message = translate("Worker", "PDFを保存しました:\n{path}").format(
                     path=output_path
                 )
@@ -1277,11 +1429,17 @@ class AppWorker(QRunnable):
                         "Worker",
                         "\n\n次のOfficeファイルは変換に失敗したため除外しました:\n{files}\n\nMicrosoft Officeがインストールされ、対象ファイルを開けることを確認してください。",
                     ).format(files=skipped_files)
-                self.signals.finished.emit(
-                    self.task_name,
-                    translate("Worker", "保存完了"),
-                    message,
-                )
+                if emit_completion:
+                    self.signals.finished.emit(
+                        self.task_name,
+                        translate("Worker", "保存完了"),
+                        message,
+                    )
+                return {
+                    "saved": True,
+                    "failed_office_conversions": failed_office_conversions,
+                    "message": message,
+                }
 
         finally:
             final_doc.close()
@@ -1292,6 +1450,404 @@ class AppWorker(QRunnable):
                 except Exception as e:
                     print(f"一時ファイルの削除に失敗: {temp_f}, エラー: {e}")
 
+    @staticmethod
+    def _item_type_from_extension(file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in SUPPORTED_PDF:
+            return "pdf"
+        if ext in SUPPORTED_WORD:
+            return "word"
+        if ext in SUPPORTED_EXCEL:
+            return "excel"
+        if ext in SUPPORTED_POWERPOINT:
+            return "powerpoint"
+        if ext in SUPPORTED_IMAGE:
+            return "image"
+        return None
+
+    def _build_items_data_from_file_paths(self, file_paths):
+        """通常画面でファイルを追加した場合と同等の items_data を作る。"""
+        items_data = []
+        skipped = []
+        warnings = []
+
+        for path in file_paths:
+            item_type = self._item_type_from_extension(path)
+            if item_type is None:
+                skipped.append(path)
+                continue
+
+            try:
+                if item_type == "pdf":
+                    with fitz.open(path) as doc:
+                        for page_num in range(doc.page_count):
+                            items_data.append(
+                                {
+                                    "type": "pdf",
+                                    "path": path,
+                                    "page_num": page_num,
+                                    "rotation": 0,
+                                    "original_path": path,
+                                }
+                            )
+                elif item_type == "image":
+                    with Image.open(path) as image:
+                        image.verify()
+                    items_data.append(
+                        {
+                            "type": "image",
+                            "path": path,
+                            "rotation": 0,
+                            "original_path": path,
+                            "page_num": 0,
+                        }
+                    )
+                else:
+                    items_data.append(
+                        {
+                            "type": item_type,
+                            "path": path,
+                            "rotation": 0,
+                            "original_path": path,
+                        }
+                    )
+            except Exception as e:
+                skipped.append(path)
+                warnings.append(
+                    translate(
+                        "Worker", "{name}を読み込めないためスキップしました: {error}"
+                    ).format(name=os.path.basename(path), error=e)
+                )
+
+        return {
+            "items_data": items_data,
+            "skipped_files": skipped,
+            "warnings": warnings,
+        }
+
+    def _build_auto_bookmarks_from_items_data(self, items_data):
+        """items_dataからファイル先頭ページの自動しおりを作る。"""
+        bookmarks = []
+        seen_paths = set()
+        for item_data in items_data:
+            if not item_data or item_data.get("type") == "blank":
+                continue
+            original_path = item_data.get("original_path")
+            if not original_path:
+                continue
+            normalized_path = os.path.abspath(original_path)
+            if normalized_path in seen_paths:
+                continue
+            seen_paths.add(normalized_path)
+            bookmarks.append(
+                {
+                    "title": os.path.splitext(os.path.basename(original_path))[0],
+                    "path": original_path,
+                    "page_num": item_data.get("page_num", 0),
+                    "auto": True,
+                }
+            )
+        return bookmarks
+
+    def _write_batch_log(self, log_path, rows):
+        fieldnames = [
+            "処理日時",
+            "入力サブフォルダ",
+            "出力PDF",
+            "対象ファイル数",
+            "スキップファイル数",
+            "結果",
+            "メッセージ",
+        ]
+        try:
+            with open(log_path, "w", newline="", encoding="utf-8-sig") as log_file:
+                writer = csv.DictWriter(log_file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+        except (OSError, UnicodeError) as e:
+            raise BatchLogWriteError(
+                f"一括処理ログを書き込めません: {log_path}: {e}"
+            ) from e
+
+    def _run_batch_merge_subfolders(
+        self,
+        input_root,
+        output_root,
+        overwrite=False,
+        continue_on_error=True,
+        auto_bookmarks_enabled=True,
+        show_bookmarks_on_open=True,
+        remove_pdf_annotations=False,
+        disable_image_upscaling=False,
+        suppress_office_markup=False,
+    ):
+        input_root = Path(input_root)
+        output_root = Path(output_root)
+        started_at = datetime.now()
+        timestamp = started_at.strftime("%Y%m%d_%H%M%S")
+        log_rows = []
+        counts = {"Success": 0, "Skipped": 0, "Warning": 0, "Error": 0}
+        log_path = output_root / f"batch_log_{timestamp}.csv"
+
+        def add_log(
+            subfolder, output_pdf, target_count, skipped_count, result, message
+        ):
+            counts[result] += 1
+            log_rows.append(
+                {
+                    "処理日時": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+                    "入力サブフォルダ": str(subfolder) if subfolder else "",
+                    "出力PDF": str(output_pdf) if output_pdf else "",
+                    "対象ファイル数": target_count,
+                    "スキップファイル数": skipped_count,
+                    "結果": result,
+                    "メッセージ": message,
+                }
+            )
+
+        def create_result(status, message=""):
+            return {
+                "status": status,
+                "message": message,
+                "counts": counts.copy(),
+                "log_path": str(log_path),
+                "input_root": str(input_root),
+                "output_root": str(output_root),
+            }
+
+        if not input_root.exists() or not input_root.is_dir():
+            message = translate(
+                "Worker", "入力親フォルダが存在しません:\n{path}"
+            ).format(path=input_root)
+            self.signals.error.emit(
+                translate("Worker", "入力親フォルダが存在しません"),
+                message,
+            )
+            return create_result("input_not_found", message)
+
+        try:
+            output_root.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            message = translate(
+                "Worker", "出力フォルダを作成できません:\n{path}\n\n{error}"
+            ).format(path=output_root, error=e)
+            self.signals.error.emit(
+                translate("Worker", "出力フォルダを作成できません"),
+                message,
+            )
+            return create_result("output_error", message)
+
+        subfolders = sorted(
+            [path for path in input_root.iterdir() if path.is_dir()],
+            key=lambda path: path.name,
+        )
+
+        if not subfolders:
+            add_log(
+                input_root,
+                "",
+                0,
+                0,
+                "Skipped",
+                translate("Worker", "処理対象のサブフォルダがありません"),
+            )
+            self._write_batch_log(log_path, log_rows)
+            self.signals.finished.emit(
+                self.task_name,
+                translate("Worker", "完了"),
+                translate(
+                    "Worker",
+                    "処理対象のサブフォルダがありません。\n\nログ:\n{log}",
+                ).format(log=log_path),
+            )
+            return create_result(
+                "no_subfolders",
+                translate("Worker", "処理対象のサブフォルダがありません"),
+            )
+
+        total = len(subfolders)
+        for index, subfolder in enumerate(subfolders, start=1):
+            if not self.is_running:
+                break
+
+            output_pdf = output_root / f"{subfolder.name}.pdf"
+            progress = int(((index - 1) / total) * 100)
+            self.signals.progress.emit(
+                progress,
+                translate(
+                    "Worker",
+                    "処理中: {current}/{total}\n{name} をPDF作成中...",
+                ).format(current=index, total=total, name=subfolder.name),
+            )
+
+            if output_pdf.exists() and not overwrite:
+                add_log(
+                    subfolder,
+                    output_pdf,
+                    0,
+                    0,
+                    "Skipped",
+                    translate("Worker", "同名PDFが既に存在するためスキップ"),
+                )
+                continue
+
+            files = sorted(
+                [str(path) for path in subfolder.iterdir() if path.is_file()],
+                key=lambda path: os.path.basename(path),
+            )
+            unsupported_files = [
+                path for path in files if self._item_type_from_extension(path) is None
+            ]
+            supported_files = [
+                path
+                for path in files
+                if self._item_type_from_extension(path) is not None
+            ]
+
+            build_result = self._build_items_data_from_file_paths(supported_files)
+            items_data = build_result["items_data"]
+            bookmarks = (
+                self._build_auto_bookmarks_from_items_data(items_data)
+                if auto_bookmarks_enabled
+                else None
+            )
+            skipped_files = unsupported_files + build_result["skipped_files"]
+            warning_messages = []
+            if unsupported_files:
+                warning_messages.append(translate("Worker", "未対応ファイルをスキップ"))
+            warning_messages.extend(build_result["warnings"])
+
+            if not items_data:
+                result = "Error" if build_result["warnings"] else "Skipped"
+                message = (
+                    " / ".join(warning_messages)
+                    if warning_messages
+                    else translate("Worker", "対象ファイルなし")
+                )
+                add_log(
+                    subfolder,
+                    output_pdf,
+                    0,
+                    len(skipped_files),
+                    result,
+                    message,
+                )
+                if result == "Error" and not continue_on_error:
+                    break
+                continue
+
+            use_temp_output = output_pdf.exists()
+            temp_output = output_root / f".{output_pdf.stem}_{timestamp}.tmp.pdf"
+            save_path = temp_output if use_temp_output else output_pdf
+            merge_errors = []
+            try:
+                if use_temp_output and temp_output.exists():
+                    temp_output.unlink()
+                merge_result = self._run_merge_save(
+                    items_data,
+                    str(save_path),
+                    bookmarks=bookmarks,
+                    show_outlines=show_bookmarks_on_open,
+                    remove_pdf_annotations=remove_pdf_annotations,
+                    disable_image_upscaling=disable_image_upscaling,
+                    suppress_office_markup=suppress_office_markup,
+                    header_footer_settings={},
+                    emit_completion=False,
+                    emit_progress=False,
+                    collected_errors=merge_errors,
+                )
+
+                if not merge_result or not save_path.exists():
+                    message = (
+                        " / ".join(message for _title, message in merge_errors)
+                        if merge_errors
+                        else translate("Worker", "PDF保存に失敗しました")
+                    )
+                    add_log(
+                        subfolder,
+                        output_pdf,
+                        len(supported_files),
+                        len(skipped_files),
+                        "Error",
+                        message,
+                    )
+                    if use_temp_output and temp_output.exists():
+                        temp_output.unlink()
+                    if not continue_on_error:
+                        break
+                    continue
+
+                if use_temp_output:
+                    os.replace(temp_output, output_pdf)
+                failed_office = merge_result.get("failed_office_conversions", [])
+                if failed_office:
+                    warning_messages.append(
+                        translate(
+                            "Worker", "一部のOfficeファイルを変換できませんでした"
+                        )
+                    )
+                if merge_errors:
+                    warning_messages.extend(message for _title, message in merge_errors)
+
+                result = "Warning" if warning_messages else "Success"
+                add_log(
+                    subfolder,
+                    output_pdf,
+                    len(supported_files),
+                    len(skipped_files),
+                    result,
+                    " / ".join(warning_messages),
+                )
+            except Exception as e:
+                if use_temp_output and temp_output.exists():
+                    try:
+                        temp_output.unlink()
+                    except Exception:
+                        pass
+                add_log(
+                    subfolder,
+                    output_pdf,
+                    len(supported_files),
+                    len(skipped_files),
+                    "Error",
+                    str(e),
+                )
+                if not continue_on_error:
+                    break
+
+        if not self.is_running:
+            add_log(
+                "",
+                "",
+                0,
+                0,
+                "Skipped",
+                translate("Worker", "ユーザー操作により中止しました"),
+            )
+
+        self._write_batch_log(log_path, log_rows)
+        self.signals.progress.emit(100, translate("Worker", "完了"))
+        message = translate(
+            "Worker",
+            "サブフォルダごとのPDF作成が完了しました。\n\n成功: {success}件\nスキップ: {skipped}件\n警告: {warning}件\n失敗: {error}件\n\n出力フォルダ:\n{output}\n\nログ:\n{log}",
+        ).format(
+            success=counts["Success"],
+            skipped=counts["Skipped"],
+            warning=counts["Warning"],
+            error=counts["Error"],
+            output=output_root,
+            log=log_path,
+        )
+        self.signals.finished.emit(
+            self.task_name,
+            translate("Worker", "完了"),
+            message,
+        )
+        return create_result(
+            "cancelled" if not self.is_running else "completed",
+            message,
+        )
+
     def _convert_office_to_pdf(
         self,
         office_path,
@@ -1300,6 +1856,7 @@ class AppWorker(QRunnable):
         export_format_type=None,
         app_instance=None,
         suppress_errors=False,
+        suppress_office_markup=False,
     ):
         """OfficeファイルをPDFに変換（アプリケーションインスタンスを再利用可能）"""
         if not win32com:
@@ -1348,6 +1905,7 @@ class AppWorker(QRunnable):
                 return None, None
 
         doc = None
+        temp_office_copy_path = None
         temp_pdf_path = None
         try:
             temp_pdf_path = _create_office_temp_pdf_path(office_path)
@@ -1361,10 +1919,33 @@ class AppWorker(QRunnable):
                 ),
             )
 
-            # ファイルを読み取り専用で開く
+            # ファイルを読み取り専用で開く。
             doc = open_method.Open(os.path.abspath(office_path), ReadOnly=True)
 
-            if export_format_type is not None:
+            if app_name == "Excel" and suppress_office_markup:
+                try:
+                    for worksheet in doc.Worksheets:
+                        try:
+                            worksheet.PageSetup.PrintComments = EXCEL_PRINT_NO_COMMENTS
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            if app_name == "Word" and suppress_office_markup:
+                doc.ExportAsFixedFormat(
+                    OutputFileName=os.path.abspath(temp_pdf_path),
+                    ExportFormat=WORD_EXPORT_FORMAT_PDF,
+                    OpenAfterExport=False,
+                    Item=WORD_EXPORT_DOCUMENT_CONTENT,
+                    IncludeDocProps=False,
+                    KeepIRM=True,
+                    CreateBookmarks=WORD_EXPORT_CREATE_NO_BOOKMARKS,
+                    DocStructureTags=True,
+                    BitmapMissingFonts=True,
+                    UseISO19005_1=False,
+                )
+            elif export_format_type is not None:
                 doc.ExportAsFixedFormat(
                     Type=export_format_type, Filename=os.path.abspath(temp_pdf_path)
                 )
@@ -1411,20 +1992,38 @@ class AppWorker(QRunnable):
                 except Exception:
                     # Close()が失敗した場合は無視（既に閉じられている可能性がある）
                     pass
+            if temp_office_copy_path and os.path.exists(temp_office_copy_path):
+                try:
+                    os.remove(temp_office_copy_path)
+                except OSError:
+                    pass
             # app_instanceが提供されている場合は終了しない（再利用のため）
             # 提供されていない場合は終了する（後でQuitを呼ぶ必要がある）
 
-    def _convert_word_to_pdf(self, path, app_instance=None, suppress_errors=False):
+    def _convert_word_to_pdf(
+        self,
+        path,
+        app_instance=None,
+        suppress_errors=False,
+        suppress_office_markup=False,
+    ):
         result, app = self._convert_office_to_pdf(
             path,
             "Word",
             save_as_format=WORD_SAVE_AS_PDF_FORMAT,
             app_instance=app_instance,
             suppress_errors=suppress_errors,
+            suppress_office_markup=suppress_office_markup,
         )
         return result, app
 
-    def _convert_excel_to_pdf(self, path, app_instance=None, suppress_errors=False):
+    def _convert_excel_to_pdf(
+        self,
+        path,
+        app_instance=None,
+        suppress_errors=False,
+        suppress_office_markup=False,
+    ):
         result, app = self._convert_office_to_pdf(
             path,
             "Excel",
@@ -1432,11 +2031,16 @@ class AppWorker(QRunnable):
             export_format_type=EXCEL_EXPORT_PDF_TYPE,
             app_instance=app_instance,
             suppress_errors=suppress_errors,
+            suppress_office_markup=suppress_office_markup,
         )
         return result, app
 
     def _convert_powerpoint_to_pdf(
-        self, path, app_instance=None, suppress_errors=False
+        self,
+        path,
+        app_instance=None,
+        suppress_errors=False,
+        suppress_office_markup=False,
     ):
         result, app = self._convert_office_to_pdf(
             path,
@@ -1444,6 +2048,7 @@ class AppWorker(QRunnable):
             save_as_format=POWERPOINT_SAVE_AS_PDF_FORMAT,
             app_instance=app_instance,
             suppress_errors=suppress_errors,
+            suppress_office_markup=suppress_office_markup,
         )
         return result, app
 
@@ -2230,6 +2835,120 @@ class AppWorker(QRunnable):
             )
 
 
+class BatchMergeSubfoldersDialog(QDialog):
+    """サブフォルダごとのPDF作成条件を指定するダイアログ。"""
+
+    def __init__(self, parent=None, initial_path=""):
+        super().__init__(parent)
+        self.setWindowTitle(translate("BatchDialog", "サブフォルダごとにPDF作成"))
+        self.setMinimumWidth(620)
+        self._output_root_user_edited = False
+        self._syncing_output_root = False
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        input_layout = QHBoxLayout()
+        input_label = QLabel(translate("BatchDialog", "入力親フォルダ:"))
+        self.input_root_edit = QLineEdit()
+        self.input_root_edit.setText(initial_path)
+        self.input_root_edit.textChanged.connect(self._on_input_root_changed)
+        input_button = QPushButton(translate("BatchDialog", "参照..."))
+        input_button.clicked.connect(self._browse_input_root)
+        input_layout.addWidget(input_label)
+        input_layout.addWidget(self.input_root_edit, 1)
+        input_layout.addWidget(input_button)
+        layout.addLayout(input_layout)
+
+        output_layout = QHBoxLayout()
+        output_label = QLabel(translate("BatchDialog", "出力フォルダ:"))
+        self.output_root_edit = QLineEdit()
+        self.output_root_edit.setText(initial_path)
+        self.output_root_edit.textEdited.connect(self._on_output_root_edited)
+        output_button = QPushButton(translate("BatchDialog", "参照..."))
+        output_button.clicked.connect(self._browse_output_root)
+        output_layout.addWidget(output_label)
+        output_layout.addWidget(self.output_root_edit, 1)
+        output_layout.addWidget(output_button)
+        layout.addLayout(output_layout)
+
+        note = QLabel(
+            translate(
+                "BatchDialog",
+                "各サブフォルダ内のファイルはファイル名順に結合されます。",
+            )
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #bdc3c7;")
+        layout.addWidget(note)
+
+        self.continue_on_error_checkbox = QCheckBox(
+            translate("BatchDialog", "エラーが発生しても次のフォルダを処理する")
+        )
+        self.continue_on_error_checkbox.setChecked(True)
+        layout.addWidget(self.continue_on_error_checkbox)
+
+        self.overwrite_checkbox = QCheckBox(
+            translate("BatchDialog", "既存PDFを上書きする")
+        )
+        self.overwrite_checkbox.setChecked(False)
+        layout.addWidget(self.overwrite_checkbox)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.button(QDialogButtonBox.StandardButton.Ok).setText(
+            translate("BatchDialog", "開始")
+        )
+        button_box.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            translate("BatchDialog", "キャンセル")
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def _browse_input_root(self):
+        path = QFileDialog.getExistingDirectory(
+            self,
+            translate("BatchDialog", "入力親フォルダを選択"),
+            self.input_root_edit.text(),
+        )
+        if path:
+            self.input_root_edit.setText(path)
+
+    def _on_input_root_changed(self, path):
+        if self._output_root_user_edited:
+            return
+        self._syncing_output_root = True
+        try:
+            self.output_root_edit.setText(path)
+        finally:
+            self._syncing_output_root = False
+
+    def _on_output_root_edited(self):
+        if not self._syncing_output_root:
+            self._output_root_user_edited = True
+
+    def _browse_output_root(self):
+        path = QFileDialog.getExistingDirectory(
+            self,
+            translate("BatchDialog", "出力フォルダを選択"),
+            self.output_root_edit.text() or self.input_root_edit.text(),
+        )
+        if path:
+            self._output_root_user_edited = True
+            self.output_root_edit.setText(path)
+
+    def get_settings(self):
+        return {
+            "input_root": self.input_root_edit.text().strip(),
+            "output_root": self.output_root_edit.text().strip(),
+            "continue_on_error": self.continue_on_error_checkbox.isChecked(),
+            "overwrite": self.overwrite_checkbox.isChecked(),
+        }
+
+
 class HeaderFooterSettingsDialog(QDialog):
     """ヘッダー・フッター設定ダイアログ"""
 
@@ -2563,6 +3282,9 @@ class OfficePDFBinderApp(QMainWindow):
         self.bookmarks = []
         self.auto_bookmarks_enabled = True
         self.show_bookmarks_on_open = True
+        self.remove_pdf_annotations = False
+        self.disable_image_upscaling = False
+        self.suppress_office_markup = False
         # ページ番号設定のデフォルト値
         self.page_number_settings = {
             "enabled": False,
@@ -2656,6 +3378,15 @@ class OfficePDFBinderApp(QMainWindow):
                 self.show_bookmarks_on_open = self.config.getboolean(
                     "Bookmarks", "show_on_open", fallback=True
                 )
+                self.remove_pdf_annotations = self.config.getboolean(
+                    "PdfImport", "remove_annotations", fallback=False
+                )
+                self.disable_image_upscaling = self.config.getboolean(
+                    "ImageConversion", "disable_upscaling", fallback=False
+                )
+                self.suppress_office_markup = self.config.getboolean(
+                    "OfficeConversion", "suppress_markup", fallback=False
+                )
                 # ページ番号とヘッダー・フッターの設定は読み込まない
                 # （アプリ起動時に常にリセットされるため）
         except Exception as e:
@@ -2674,6 +3405,12 @@ class OfficePDFBinderApp(QMainWindow):
                 self.config.add_section("Paths")
             if not self.config.has_section("Bookmarks"):
                 self.config.add_section("Bookmarks")
+            if not self.config.has_section("PdfImport"):
+                self.config.add_section("PdfImport")
+            if not self.config.has_section("ImageConversion"):
+                self.config.add_section("ImageConversion")
+            if not self.config.has_section("OfficeConversion"):
+                self.config.add_section("OfficeConversion")
             if not self.config.has_section("PageNumbers"):
                 self.config.add_section("PageNumbers")
             if not self.config.has_section("HeaderFooter"):
@@ -2688,6 +3425,19 @@ class OfficePDFBinderApp(QMainWindow):
             )
             self.config.set(
                 "Bookmarks", "show_on_open", str(self.show_bookmarks_on_open)
+            )
+            self.config.set(
+                "PdfImport", "remove_annotations", str(self.remove_pdf_annotations)
+            )
+            self.config.set(
+                "ImageConversion",
+                "disable_upscaling",
+                str(self.disable_image_upscaling),
+            )
+            self.config.set(
+                "OfficeConversion",
+                "suppress_markup",
+                str(self.suppress_office_markup),
             )
             window_rect = (
                 self.normalGeometry() if self.isMaximized() else self.geometry()
@@ -3032,6 +3782,14 @@ class OfficePDFBinderApp(QMainWindow):
         self.open_action.setToolTip(translate("MainWindow", "ファイルを追加"))
         self.open_action.triggered.connect(self._add_files)
 
+        self.add_blank_page_action = QAction(
+            translate("MainWindow", "空白ページを挿入"), self
+        )
+        self.add_blank_page_action.setToolTip(
+            translate("MainWindow", "A4縦の空白ページを追加")
+        )
+        self.add_blank_page_action.triggered.connect(self._add_blank_page)
+
         self.save_action = QAction(
             translate("MainWindow", "名前を付けて保存(&S)..."), self
         )
@@ -3128,6 +3886,55 @@ class OfficePDFBinderApp(QMainWindow):
             self._toggle_show_bookmarks_on_open
         )
 
+        self.remove_pdf_annotations_action = QAction(
+            translate("MainWindow", "PDFのコメント・図形を除去"), self
+        )
+        self.remove_pdf_annotations_action.setCheckable(True)
+        self.remove_pdf_annotations_action.setChecked(self.remove_pdf_annotations)
+        self.remove_pdf_annotations_action.setToolTip(
+            translate(
+                "MainWindow",
+                "PDF注釈として保持されているコメント・図形を保存時に出力しない",
+            )
+        )
+        self.remove_pdf_annotations_action.triggered.connect(
+            self._toggle_remove_pdf_annotations
+        )
+
+        self.disable_image_upscaling_action = QAction(
+            translate("MainWindow", "小さい画像を拡大しない"), self
+        )
+        self.disable_image_upscaling_action.setCheckable(True)
+        self.disable_image_upscaling_action.setChecked(self.disable_image_upscaling)
+        self.disable_image_upscaling_action.setToolTip(
+            translate(
+                "MainWindow",
+                "画像をPDFページにするとき、小さい画像は元の大きさを超えて拡大しない",
+            )
+        )
+        self.disable_image_upscaling_action.triggered.connect(
+            self._toggle_disable_image_upscaling
+        )
+
+        self.suppress_office_markup_action = QAction(
+            translate(
+                "MainWindow",
+                "Wordのコメント・変更履歴とExcelのコメントをPDFに出さない",
+            ),
+            self,
+        )
+        self.suppress_office_markup_action.setCheckable(True)
+        self.suppress_office_markup_action.setChecked(self.suppress_office_markup)
+        self.suppress_office_markup_action.setToolTip(
+            translate(
+                "MainWindow",
+                "Wordのコメント・変更履歴とExcelのコメントをPDFに出さない。PowerPointは通常どおりPDF化します。",
+            )
+        )
+        self.suppress_office_markup_action.triggered.connect(
+            self._toggle_suppress_office_markup
+        )
+
         # ヘッダー・フッター設定
         self.header_footer_settings_action = QAction(
             translate("MainWindow", "ヘッダーとフッター(&H)..."), self
@@ -3138,6 +3945,17 @@ class OfficePDFBinderApp(QMainWindow):
         )
         self.header_footer_settings_action.triggered.connect(
             self._show_header_footer_settings
+        )
+
+        # 一括処理
+        self.batch_merge_subfolders_action = QAction(
+            translate("MainWindow", "サブフォルダごとにPDF作成..."), self
+        )
+        self.batch_merge_subfolders_action.setToolTip(
+            translate("MainWindow", "親フォルダ直下のサブフォルダごとにPDFを作成")
+        )
+        self.batch_merge_subfolders_action.triggered.connect(
+            self._show_batch_merge_subfolders_dialog
         )
 
     def create_toolbar(self):
@@ -3219,6 +4037,8 @@ class OfficePDFBinderApp(QMainWindow):
         page_ops_menu.addSeparator()
         page_ops_menu.addAction(self.rot_left_action)
         page_ops_menu.addAction(self.rot_right_action)
+        page_ops_menu.addSeparator()
+        page_ops_menu.addAction(self.add_blank_page_action)
 
         # 表示メニュー
         view_menu = menubar.addMenu(translate("MainWindow", "表示(&V)"))
@@ -3233,7 +4053,15 @@ class OfficePDFBinderApp(QMainWindow):
         settings_menu.addAction(self.auto_bookmark_action)
         settings_menu.addAction(self.show_outline_on_open_action)
         settings_menu.addSeparator()
+        settings_menu.addAction(self.remove_pdf_annotations_action)
+        settings_menu.addAction(self.disable_image_upscaling_action)
+        settings_menu.addAction(self.suppress_office_markup_action)
+        settings_menu.addSeparator()
         settings_menu.addAction(self.header_footer_settings_action)
+
+        # 一括処理メニュー
+        batch_menu = menubar.addMenu(translate("MainWindow", "一括処理"))
+        batch_menu.addAction(self.batch_merge_subfolders_action)
 
         # ヘルプ関連アクション（メニュー直下に表示）
         menubar.addAction(self.open_manual_action)
@@ -3331,7 +4159,7 @@ class OfficePDFBinderApp(QMainWindow):
     def _add_files(self):
         file_dialog_filter = translate(
             "MainWindow",
-            "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm);;すべてのファイル (*)",
+            "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp);;すべてのファイル (*)",
         )
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -3459,6 +4287,57 @@ class OfficePDFBinderApp(QMainWindow):
 
         item.setIcon(self._create_thumbnail(item_data))
         self.page_list_widget.addItem(item)
+
+    def _create_blank_page_item_data(self):
+        blank_index = (
+            sum(
+                1
+                for row in range(self.page_list_widget.count())
+                if self.page_list_widget.item(row).data(Qt.UserRole).get("type")
+                == "blank"
+            )
+            + 1
+        )
+        blank_id = f"__blank_page_{int(time.time() * 1000)}_{blank_index}"
+        return {
+            "type": "blank",
+            "path": blank_id,
+            "original_path": blank_id,
+            "page_num": 0,
+            "rotation": 0,
+            "display_name": translate("MainWindow", "空白ページ {number}").format(
+                number=blank_index
+            ),
+            "width": BLANK_PAGE_WIDTH,
+            "height": BLANK_PAGE_HEIGHT,
+        }
+
+    def _add_blank_page(self):
+        """A4縦の空白ページを、選択位置の直後または末尾へ追加する。"""
+        item_data = self._create_blank_page_item_data()
+        item = QListWidgetItem()
+        item.setData(Qt.UserRole, item_data)
+        self._update_item_text(item, item_data)
+        item.setIcon(self._create_thumbnail(item_data))
+
+        selected_rows = sorted(
+            self.page_list_widget.row(item)
+            for item in self.page_list_widget.selectedItems()
+        )
+        insert_row = (
+            selected_rows[-1] + 1 if selected_rows else self.page_list_widget.count()
+        )
+        self.page_list_widget.insertItem(insert_row, item)
+        self.page_list_widget.clearSelection()
+        item.setSelected(True)
+        self.page_list_widget.scrollToItem(
+            item, QAbstractItemView.ScrollHint.EnsureVisible
+        )
+
+        self._generate_bookmarks_from_list()
+        self.update_status_bar()
+        self._update_page_mode_actions_state()
+        self._record_history_change()
 
     def _add_pdf_items_sequential(self, pdf_items):
         """通常処理（比較用）"""
@@ -3956,6 +4835,34 @@ class OfficePDFBinderApp(QMainWindow):
             return self._create_file_type_thumbnail(
                 "P", "PowerPoint", "#C43E1C", size, "presentation"
             )
+        elif item_data["type"] == "image":
+            try:
+                with Image.open(item_data["path"]) as image:
+                    image = image.convert("RGBA")
+                    rotation = item_data.get("rotation", 0)
+                    if rotation:
+                        image = image.rotate(-rotation, expand=True)
+                    image.thumbnail((size.width(), size.height()), Image.LANCZOS)
+                    canvas = Image.new(
+                        "RGBA", (size.width(), size.height()), (45, 52, 64, 255)
+                    )
+                    x = (size.width() - image.width) // 2
+                    y = (size.height() - image.height) // 2
+                    canvas.alpha_composite(image, (x, y))
+                    return QPixmap.fromImage(
+                        QImage(
+                            canvas.tobytes(),
+                            canvas.width,
+                            canvas.height,
+                            QImage.Format_RGBA8888,
+                        )
+                    )
+            except Exception:
+                return self._create_dummy_thumbnail("Image\nError", "#e74c3c", size)
+        elif item_data["type"] == "blank":
+            return self._create_file_type_thumbnail(
+                "", translate("MainWindow", "空白"), "#94A3B8", size, "document"
+            )
         else:
             return self._create_file_type_thumbnail("F", "File", "#6B7280", size)
 
@@ -4216,13 +5123,22 @@ class OfficePDFBinderApp(QMainWindow):
         # --- Step 3: アイテムが選択されている場合 ---
         # 選択されていれば常に有効なアクション
         self.delete_action.setEnabled(True)
-        self.rot_left_action.setEnabled(True)
-        self.rot_right_action.setEnabled(True)
         self.merge_action.setEnabled(True)
+        selected_types = [
+            item.data(Qt.UserRole).get("type")
+            for item in self.page_list_widget.selectedItems()
+            if item.data(Qt.UserRole)
+        ]
+        has_rotatable_page = any(
+            item_type in ("pdf", "image") for item_type in selected_types
+        )
+        has_exportable_pdf_image = "pdf" in selected_types
+        self.rot_left_action.setEnabled(has_rotatable_page)
+        self.rot_right_action.setEnabled(has_rotatable_page)
         if hasattr(self, "export_selected_pdf_action"):
             self.export_selected_pdf_action.setEnabled(True)
         if hasattr(self, "export_selected_images_action"):
-            self.export_selected_images_action.setEnabled(True)
+            self.export_selected_images_action.setEnabled(has_exportable_pdf_image)
 
         # 移動アクションの状態判定
         selected_rows = [
@@ -4319,8 +5235,8 @@ class OfficePDFBinderApp(QMainWindow):
         changed = False
         for item in self.page_list_widget.selectedItems():
             data = item.data(Qt.UserRole)
-            # PDFページアイテムのみを対象とする
-            if data["type"] == "pdf":
+            # PDFページと画像ページを対象とする
+            if data["type"] in ("pdf", "image"):
                 # 現在の回転角度に新しい角度を加算し、360で割った余りを新しい角度とする
                 # (例: 270 + 90 = 360 -> 0)
                 data["rotation"] = (data["rotation"] + angle) % 360
@@ -4522,6 +5438,9 @@ class OfficePDFBinderApp(QMainWindow):
             "last_used_path": self.last_used_path,
             "auto_bookmarks_enabled": self.auto_bookmarks_enabled,
             "show_bookmarks_on_open": self.show_bookmarks_on_open,
+            "remove_pdf_annotations": self.remove_pdf_annotations,
+            "disable_image_upscaling": self.disable_image_upscaling,
+            "suppress_office_markup": self.suppress_office_markup,
         }
 
     def _apply_state_snapshot(self, snapshot):
@@ -4538,10 +5457,27 @@ class OfficePDFBinderApp(QMainWindow):
         self.show_bookmarks_on_open = snapshot.get(
             "show_bookmarks_on_open", self.show_bookmarks_on_open
         )
+        self.remove_pdf_annotations = snapshot.get(
+            "remove_pdf_annotations", self.remove_pdf_annotations
+        )
+        self.disable_image_upscaling = snapshot.get(
+            "disable_image_upscaling", self.disable_image_upscaling
+        )
+        self.suppress_office_markup = snapshot.get(
+            "suppress_office_markup", self.suppress_office_markup
+        )
         if hasattr(self, "auto_bookmark_action"):
             self.auto_bookmark_action.setChecked(self.auto_bookmarks_enabled)
         if hasattr(self, "show_outline_on_open_action"):
             self.show_outline_on_open_action.setChecked(self.show_bookmarks_on_open)
+        if hasattr(self, "remove_pdf_annotations_action"):
+            self.remove_pdf_annotations_action.setChecked(self.remove_pdf_annotations)
+        if hasattr(self, "disable_image_upscaling_action"):
+            self.disable_image_upscaling_action.setChecked(
+                self.disable_image_upscaling
+            )
+        if hasattr(self, "suppress_office_markup_action"):
+            self.suppress_office_markup_action.setChecked(self.suppress_office_markup)
         # ページ番号とヘッダー・フッターのチェックボックスの状態を更新
 
         if hasattr(self, "bookmark_dock") and self.bookmark_dock.isVisible():
@@ -4616,6 +5552,12 @@ class OfficePDFBinderApp(QMainWindow):
             == state_b.get("auto_bookmarks_enabled")
             and state_a.get("show_bookmarks_on_open")
             == state_b.get("show_bookmarks_on_open")
+            and state_a.get("remove_pdf_annotations")
+            == state_b.get("remove_pdf_annotations")
+            and state_a.get("disable_image_upscaling")
+            == state_b.get("disable_image_upscaling")
+            and state_a.get("suppress_office_markup")
+            == state_b.get("suppress_office_markup")
         )
 
     def _record_history_change(self, initial=False):
@@ -4644,6 +5586,8 @@ class OfficePDFBinderApp(QMainWindow):
         """設定に応じたしおりタイトルを生成"""
         if not item_data:
             return translate("MainWindow", "無題")
+        if item_data.get("type") == "blank":
+            return item_data.get("display_name", translate("MainWindow", "空白ページ"))
         base = os.path.splitext(os.path.basename(item_data["original_path"]))[0]
         if include_page and item_data.get("type") == "pdf":
             page_num = item_data.get("page_num", 0)
@@ -4721,6 +5665,8 @@ class OfficePDFBinderApp(QMainWindow):
             item_data = item.data(Qt.UserRole)
             if not item_data:
                 continue
+            if item_data.get("type") == "blank":
+                continue
             current_original_path = item_data["original_path"]
 
             if current_original_path != last_original_path:
@@ -4761,6 +5707,11 @@ class OfficePDFBinderApp(QMainWindow):
             # PDFの場合は、ファイル名とページ番号を2行で表示（ツールチップ用）
             page_num_text = f".P{item_data['page_num'] + 1}"
             icon_text = f"{base_filename}\n{page_num_text.lstrip('.')}"
+        elif item_data["type"] == "blank":
+            blank_name = item_data.get(
+                "display_name", translate("MainWindow", "空白ページ")
+            )
+            icon_text = f"{blank_name}\nA4"
         else:
             # PDF以外（Word, Excel, PPT）の場合は、ファイル名の下に空の2行目を作る
             icon_text = f"{base_filename}\n"
@@ -4784,6 +5735,10 @@ class OfficePDFBinderApp(QMainWindow):
                 final_text = self._elide_text_keep_suffix(
                     base_filename, page_num_text, max_width
                 )
+        elif item_data["type"] == "blank":
+            final_text = self._elide_text(
+                item_data.get("display_name", translate("MainWindow", "空白ページ"))
+            )
         else:
             # PDF以外の場合は、ファイル名のみ
             final_text = self._elide_text(base_filename)
@@ -4914,6 +5869,9 @@ class OfficePDFBinderApp(QMainWindow):
             output_path=output_path,
             bookmarks=bookmarks_export,
             show_outlines=self.show_bookmarks_on_open,
+            remove_pdf_annotations=self.remove_pdf_annotations,
+            disable_image_upscaling=self.disable_image_upscaling,
+            suppress_office_markup=self.suppress_office_markup,
             header_footer_settings=header_footer_settings,
         )
 
@@ -4974,7 +5932,6 @@ class OfficePDFBinderApp(QMainWindow):
             for item_data in items_data:
                 if (
                     item_data.get("original_path") == bookmark_path
-                    and item_data.get("type") == "pdf"
                     and item_data.get("page_num") == bookmark_page
                 ):
                     bookmarks_export.append(
@@ -5032,6 +5989,9 @@ class OfficePDFBinderApp(QMainWindow):
             output_path=output_path,
             bookmarks=bookmarks_export if bookmarks_export else None,
             show_outlines=False,  # 部分書き出しではしおりを自動表示しない
+            remove_pdf_annotations=self.remove_pdf_annotations,
+            disable_image_upscaling=self.disable_image_upscaling,
+            suppress_office_markup=self.suppress_office_markup,
             header_footer_settings=header_footer_settings,
         )
 
@@ -5118,6 +6078,55 @@ class OfficePDFBinderApp(QMainWindow):
             self._save_settings()
             # チェックボックスの状態を更新
 
+    def _show_batch_merge_subfolders_dialog(self):
+        """親フォルダ直下のサブフォルダごとにPDFを一括作成する。"""
+        dialog = BatchMergeSubfoldersDialog(self, self.last_used_path)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        settings = dialog.get_settings()
+        input_root = settings["input_root"]
+        output_root = settings["output_root"]
+
+        if not input_root:
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "入力エラー"),
+                translate("MainWindow", "入力親フォルダを指定してください。"),
+            )
+            return
+        if not output_root:
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "入力エラー"),
+                translate("MainWindow", "出力フォルダを指定してください。"),
+            )
+            return
+        if not os.path.isdir(input_root):
+            QMessageBox.warning(
+                self,
+                translate("MainWindow", "入力エラー"),
+                translate("MainWindow", "入力親フォルダが存在しません:\n{path}").format(
+                    path=input_root
+                ),
+            )
+            return
+
+        self.last_used_path = input_root
+        self._run_task(
+            "batch_merge_subfolders",
+            translate("MainWindow", "サブフォルダごとにPDF作成"),
+            input_root=input_root,
+            output_root=output_root,
+            overwrite=settings["overwrite"],
+            continue_on_error=settings["continue_on_error"],
+            auto_bookmarks_enabled=self.auto_bookmarks_enabled,
+            show_bookmarks_on_open=self.show_bookmarks_on_open,
+            remove_pdf_annotations=self.remove_pdf_annotations,
+            disable_image_upscaling=self.disable_image_upscaling,
+            suppress_office_markup=self.suppress_office_markup,
+        )
+
     def _export_selected_as_images(self):
         """選択されたページを画像として書き出す"""
         selected_items = self.page_list_widget.selectedItems()
@@ -5128,18 +6137,6 @@ class OfficePDFBinderApp(QMainWindow):
                 translate("MainWindow", "書き出すページを選択してください。"),
             )
             return
-
-        # 保存先フォルダを選択
-        output_dir = QFileDialog.getExistingDirectory(
-            self,
-            translate("MainWindow", "画像の保存先フォルダーを選択"),
-            self.last_used_path,
-        )
-
-        if not output_dir:
-            return
-
-        self.last_used_path = output_dir
 
         # 選択されたアイテムのデータを取得（選択順を保持）
         selected_items_sorted = sorted(
@@ -5177,12 +6174,36 @@ class OfficePDFBinderApp(QMainWindow):
         # 実際にワーカーへ渡すのは PDF ページのみ
         items_data = pdf_items
 
+        dpi_labels = [f"{dpi} dpi" for dpi in IMAGE_EXPORT_DPI_OPTIONS]
+        default_index = IMAGE_EXPORT_DPI_OPTIONS.index(DEFAULT_IMAGE_EXPORT_DPI)
+        selected_dpi, accepted = QInputDialog.getItem(
+            self,
+            translate("MainWindow", "画像書き出し設定"),
+            translate("MainWindow", "解像度:"),
+            dpi_labels,
+            default_index,
+            False,
+        )
+        if not accepted:
+            return
+        dpi = int(selected_dpi.split()[0])
+
+        output_dir = QFileDialog.getExistingDirectory(
+            self,
+            translate("MainWindow", "画像の保存先フォルダーを選択"),
+            self.last_used_path,
+        )
+        if not output_dir:
+            return
+
+        self.last_used_path = output_dir
+
         self._run_task(
             "export_images",
             translate("MainWindow", "選択ページを画像として書き出し"),
             items_data=items_data,
             output_dir=output_dir,
-            dpi=300,
+            dpi=dpi,
             image_format="JPEG",
         )
 
@@ -5307,6 +6328,13 @@ class OfficePDFBinderApp(QMainWindow):
                 self.update_status_bar()
                 self._update_page_mode_actions_state()
                 self._record_history_change()
+        elif task_name == "batch_merge_subfolders":
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Information)
+            msg_box.setWindowTitle(title)
+            msg_box.setText(message)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
 
     def on_worker_error(self, title, message):
         if self.progress_dialog:
@@ -5323,11 +6351,17 @@ class OfficePDFBinderApp(QMainWindow):
             )
             self.selection_status_label.setText("")
         else:
-            counts = {"pdf": 0, "word": 0, "excel": 0, "powerpoint": 0}
+            counts = {
+                "pdf": 0,
+                "word": 0,
+                "excel": 0,
+                "powerpoint": 0,
+                "image": 0,
+            }
             unique_files = set()
             for i in range(self.page_list_widget.count()):
                 data = self.page_list_widget.item(i).data(Qt.UserRole)
-                if data["type"] == "pdf":
+                if data["type"] in ("pdf", "blank"):
                     counts["pdf"] += 1
                 elif data["original_path"] not in unique_files:
                     counts[data["type"]] += 1
@@ -5360,6 +6394,13 @@ class OfficePDFBinderApp(QMainWindow):
                         count=counts["powerpoint"]
                     )
                     if counts["powerpoint"] > 0
+                    else None
+                ),
+                (
+                    translate("MainWindow", "画像: {count}").format(
+                        count=counts["image"]
+                    )
+                    if counts["image"] > 0
                     else None
                 ),
             ]
@@ -5644,6 +6685,8 @@ class OfficePDFBinderApp(QMainWindow):
             menu.addAction(self.move_up_action)
             menu.addAction(self.move_down_action)
             menu.addAction(self.move_to_bottom_action)
+            menu.addSeparator()
+            menu.addAction(self.add_blank_page_action)
 
             bookmark_action = QAction(
                 translate("MainWindow", "選択ページにしおりを追加"), self
@@ -5779,6 +6822,27 @@ class OfficePDFBinderApp(QMainWindow):
         """PDF保存時のしおり表示挙動を切り替え"""
         self.show_bookmarks_on_open = checked
         self.show_outline_on_open_action.setChecked(checked)
+        self._save_settings()
+        self._record_history_change()
+
+    def _toggle_remove_pdf_annotations(self, checked):
+        """PDF保存時にPDF注釈を出力するかどうかを切り替え"""
+        self.remove_pdf_annotations = checked
+        self.remove_pdf_annotations_action.setChecked(checked)
+        self._save_settings()
+        self._record_history_change()
+
+    def _toggle_disable_image_upscaling(self, checked):
+        """画像PDF化時に小さい画像を拡大するかどうかを切り替え"""
+        self.disable_image_upscaling = checked
+        self.disable_image_upscaling_action.setChecked(checked)
+        self._save_settings()
+        self._record_history_change()
+
+    def _toggle_suppress_office_markup(self, checked):
+        """Office変換時にレビュー情報をPDFに出すかどうかを切り替え"""
+        self.suppress_office_markup = checked
+        self.suppress_office_markup_action.setChecked(checked)
         self._save_settings()
         self._record_history_change()
 
@@ -5962,9 +7026,7 @@ class OfficePDFBinderApp(QMainWindow):
 
 
 # --- 単一インスタンス制御用の簡易サーバ ---
-_INSTANCE_MODE_SUFFIX = (
-    "Portable" if _is_portable_mode() else "Installed"
-)
+_INSTANCE_MODE_SUFFIX = "Portable" if _is_portable_mode() else "Installed"
 _SINGLE_INSTANCE_SERVER_NAME = f"OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
 _SINGLE_INSTANCE_MUTEX_NAME = (
     f"Global\\OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
@@ -6209,7 +7271,133 @@ def _handle_new_connection(server, window):
     )
 
 
+def _create_cli_parser():
+    """一括処理CLI用の引数パーサーを作成する。"""
+    parser = argparse.ArgumentParser(
+        prog=Path(sys.argv[0]).name,
+        description="Create one merged PDF for each direct subfolder.",
+    )
+    parser.add_argument(
+        "--batch-subfolders",
+        action="store_true",
+        required=True,
+        help="run the subfolder batch processing mode",
+    )
+    parser.add_argument(
+        "--input-root",
+        required=True,
+        help="parent folder containing the input subfolders",
+    )
+    parser.add_argument(
+        "--output-root",
+        required=True,
+        help="folder where merged PDFs and the CSV log are written",
+    )
+    parser.add_argument(
+        "--auto-bookmarks",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="create a bookmark for each input file (default: enabled)",
+    )
+    parser.add_argument(
+        "--show-bookmarks-on-open",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="open output PDFs with the bookmarks pane visible (default: enabled)",
+    )
+    parser.add_argument(
+        "--remove-pdf-annotations",
+        action="store_true",
+        help="omit PDF annotations while keeping links and form fields",
+    )
+    parser.add_argument(
+        "--suppress-office-markup",
+        action="store_true",
+        help="suppress Word comments/tracked changes and Excel comments",
+    )
+    parser.add_argument(
+        "--disable-image-upscaling",
+        action="store_true",
+        help="do not enlarge small images beyond the 96 dpi reference size",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace existing output PDFs",
+    )
+    return parser
+
+
+def run_cli_batch(argv=None):
+    """CLI引数を解析し、既存のサブフォルダ一括処理を同期実行する。"""
+    args = _create_cli_parser().parse_args(argv)
+
+    app = QCoreApplication.instance()
+    if app is None:
+        app = QCoreApplication([sys.argv[0]])
+    install_app_translator(app, _get_runtime_dir())
+
+    print("OfficePDFBinder CLI batch-subfolders")
+    print(f"Input root: {args.input_root}")
+    print(f"Output root: {args.output_root}")
+
+    com_initialized = False
+    try:
+        if sys.platform == "win32" and win32com:
+            pythoncom.CoInitialize()
+            com_initialized = True
+
+        worker = AppWorker("batch_merge_subfolders")
+        result = worker._run_batch_merge_subfolders(
+            input_root=args.input_root,
+            output_root=args.output_root,
+            overwrite=args.overwrite,
+            continue_on_error=True,
+            auto_bookmarks_enabled=args.auto_bookmarks,
+            show_bookmarks_on_open=args.show_bookmarks_on_open,
+            remove_pdf_annotations=args.remove_pdf_annotations,
+            disable_image_upscaling=args.disable_image_upscaling,
+            suppress_office_markup=args.suppress_office_markup,
+        )
+    except BatchLogWriteError as e:
+        print(str(e), file=sys.stderr)
+        return 5
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        return 9
+    finally:
+        if com_initialized:
+            pythoncom.CoUninitialize()
+
+    status = result["status"]
+    if status == "input_not_found":
+        print(result["message"], file=sys.stderr)
+        return 3
+    if status == "no_subfolders":
+        print(result["message"], file=sys.stderr)
+        print(f"Log: {result['log_path']}")
+        return 4
+    if status in {"output_error", "cancelled"}:
+        print(result["message"], file=sys.stderr)
+        return 1
+
+    counts = result["counts"]
+    print(f"Processed: {sum(counts.values())}")
+    print(f"Success: {counts['Success']}")
+    print(f"Warning: {counts['Warning']}")
+    print(f"Skipped: {counts['Skipped']}")
+    print(f"Error: {counts['Error']}")
+    print(f"Log: {result['log_path']}")
+    incomplete_count = (
+        counts["Warning"] + counts["Skipped"] + counts["Error"]
+    )
+    return 1 if incomplete_count else 0
+
+
 if __name__ == "__main__":
+    if "--batch-subfolders" in sys.argv[1:]:
+        sys.exit(run_cli_batch(sys.argv[1:]))
+
     process_id = os.getpid()
     # コマンドライン引数からファイルパスを取得（最初の引数はスクリプト名なので除外）
     initial_file_paths = sys.argv[1:] if len(sys.argv) > 1 else []

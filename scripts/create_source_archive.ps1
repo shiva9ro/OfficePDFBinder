@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
+$ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $DestinationFullPath = if ([IO.Path]::IsPathRooted($DestinationPath)) {
     $DestinationPath
 } else {
@@ -19,16 +19,16 @@ $RequiredFiles = @(
     "OfficePDFBinder_Main.py",
     "i18n.py",
     "version.py",
-    "setup_office_binder.iss",
+    "packaging\setup_office_binder.iss",
     "app.ico",
     "LICENSE.txt",
     "NOTICE.txt",
     "build.ps1",
-    "build_installer.ps1",
-    "build_installer_only.ps1",
-    "build_portable.ps1",
-    "create_source_archive.ps1",
-    "convert_readme.py",
+    "scripts\build_installer.ps1",
+    "scripts\build_installer_only.ps1",
+    "scripts\build_portable.ps1",
+    "scripts\create_source_archive.ps1",
+    "scripts\convert_readme.py",
     "requirements.txt",
     "requirements-dev.txt",
     "pytest.ini",

@@ -1,7 +1,7 @@
 import copy
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QInputDialog, QListWidgetItem, QMessageBox
 
 import OfficePDFBinder_Main as app_module
 
@@ -32,6 +32,24 @@ def current_page_order(window):
         .get("page_num")
         for row in range(window.page_list_widget.count())
     ]
+
+
+def test_batch_dialog_output_tracks_input_until_user_edits(qtbot, tmp_path):
+    initial = str(tmp_path / "initial")
+    dialog = app_module.BatchMergeSubfoldersDialog(initial_path=initial)
+    qtbot.addWidget(dialog)
+
+    first_input = str(tmp_path / "input1")
+    dialog.input_root_edit.setText(first_input)
+    assert dialog.output_root_edit.text() == first_input
+
+    custom_output = str(tmp_path / "custom-output")
+    dialog.output_root_edit.setText(custom_output)
+    dialog.output_root_edit.textEdited.emit(custom_output)
+
+    second_input = str(tmp_path / "input2")
+    dialog.input_root_edit.setText(second_input)
+    assert dialog.output_root_edit.text() == custom_output
 
 
 def test_move_multiple_selected_pages_preserves_relative_order(
@@ -223,16 +241,97 @@ def test_status_bar_counts_pdf_pages_and_unique_office_files(
 ):
     pdf = pdf_factory("pages.pdf", ["1", "2"])
     word = tmp_path / "report.docx"
+    image = tmp_path / "photo.png"
     add_raw_item(main_window, item_data(pdf, 0))
     add_raw_item(main_window, item_data(pdf, 1))
     add_raw_item(main_window, item_data(word, item_type="word"))
     add_raw_item(main_window, item_data(word, item_type="word"))
+    add_raw_item(main_window, item_data(image, item_type="image"))
     main_window.page_list_widget.item(0).setSelected(True)
 
     main_window.update_status_bar()
 
-    assert main_window.file_status_label.text() == "PDFページ: 2 | Word: 1"
+    assert main_window.file_status_label.text() == "PDFページ: 2 | Word: 1 | 画像: 1"
     assert main_window.selection_status_label.text() == "選択中: 1件"
+
+
+def test_add_blank_page_inserts_after_selection_and_counts_as_pdf_page(
+    main_window, pdf_factory
+):
+    source = pdf_factory("pages.pdf", ["1", "2"])
+    add_raw_item(main_window, item_data(source, 0))
+    second = add_raw_item(main_window, item_data(source, 1))
+    second.setSelected(True)
+
+    main_window._add_blank_page()
+
+    assert main_window.page_list_widget.count() == 3
+    blank_data = main_window.page_list_widget.item(2).data(Qt.ItemDataRole.UserRole)
+    assert blank_data["type"] == "blank"
+    assert blank_data["display_name"] == "空白ページ 1"
+    assert main_window.file_status_label.text() == "PDFページ: 3"
+    assert main_window.page_list_widget.item(2).isSelected()
+
+
+def test_blank_page_does_not_create_automatic_bookmark(main_window):
+    main_window._add_blank_page()
+
+    assert main_window.bookmarks == []
+
+
+def test_blank_page_selection_disables_rotation_and_image_export(main_window):
+    main_window._add_blank_page()
+
+    assert main_window.delete_action.isEnabled()
+    assert main_window.export_selected_pdf_action.isEnabled()
+    assert not main_window.export_selected_images_action.isEnabled()
+    assert not main_window.rot_left_action.isEnabled()
+    assert not main_window.rot_right_action.isEnabled()
+
+
+def test_image_selection_can_rotate_but_not_export_as_image(main_window, tmp_path):
+    image = tmp_path / "photo.png"
+    item = add_raw_item(main_window, item_data(image, item_type="image"))
+    item.setSelected(True)
+
+    main_window._update_page_mode_actions_state()
+
+    assert main_window.rot_left_action.isEnabled()
+    assert main_window.rot_right_action.isEnabled()
+    assert not main_window.export_selected_images_action.isEnabled()
+
+
+def test_image_export_uses_selected_dpi_and_defaults_to_300(
+    main_window, pdf_factory, tmp_path, monkeypatch
+):
+    source = pdf_factory("page.pdf", ["1"])
+    item = add_raw_item(main_window, item_data(source, 0))
+    item.setSelected(True)
+    calls = []
+
+    def select_dpi(_parent, _title, _label, items, current, editable):
+        assert items == ["96 dpi", "150 dpi", "300 dpi", "600 dpi"]
+        assert items[current] == "300 dpi"
+        assert editable is False
+        return "150 dpi", True
+
+    monkeypatch.setattr(QInputDialog, "getItem", select_dpi)
+    monkeypatch.setattr(
+        QFileDialog,
+        "getExistingDirectory",
+        lambda *_args, **_kwargs: str(tmp_path / "images"),
+    )
+    monkeypatch.setattr(
+        main_window,
+        "_run_task",
+        lambda task, label, **kwargs: calls.append((task, label, kwargs)),
+    )
+
+    main_window._export_selected_as_images()
+
+    assert calls[0][0] == "export_images"
+    assert calls[0][2]["dpi"] == 150
+    assert calls[0][2]["image_format"] == "JPEG"
 
 
 def test_history_is_limited_to_configured_maximum(main_window):

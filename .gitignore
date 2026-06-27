@@ -32,6 +32,7 @@ source.zip
 Backup/
 20251203_Backup/
 temp_check_iss/
+_check_portable/
 
 # Local editor settings
 .vscode/

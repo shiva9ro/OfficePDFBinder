@@ -155,7 +155,27 @@ def test_english_manual_and_bilingual_license_are_packaged_sources():
 
 def test_portable_build_regenerates_and_packages_source_archive():
     project_root = Path(__file__).parents[1]
-    build_script = (project_root / "build_portable.ps1").read_text(encoding="utf-8")
+    build_script = (project_root / "scripts" / "build_portable.ps1").read_text(
+        encoding="utf-8"
+    )
 
-    assert '".\\create_source_archive.ps1"' in build_script
+    assert '".\\scripts\\create_source_archive.ps1"' in build_script
     assert '"source.zip"' in build_script
+
+
+def test_build_support_files_are_organized_outside_project_root():
+    project_root = Path(__file__).parents[1]
+    entrypoint = (project_root / "build.ps1").read_text(encoding="utf-8")
+    expected_files = (
+        "scripts/build_installer.ps1",
+        "scripts/build_installer_only.ps1",
+        "scripts/build_portable.ps1",
+        "scripts/create_source_archive.ps1",
+        "scripts/convert_readme.py",
+        "packaging/setup_office_binder.iss",
+    )
+
+    assert all((project_root / path).is_file() for path in expected_files)
+    assert not (project_root / "build_installer.ps1").exists()
+    assert not (project_root / "setup_office_binder.iss").exists()
+    assert '".\\scripts\\build_installer.ps1"' in entrypoint

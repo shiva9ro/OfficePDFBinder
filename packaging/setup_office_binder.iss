@@ -1,8 +1,9 @@
 #ifndef MyAppVersion
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.3.0"
 #endif
 
 [Setup]
+SourceDir=..
 AppName=Office PDF Binder
 AppId={{85651C7D-2D19-4AD3-A127-173365C70370}
 AppVersion={#MyAppVersion}

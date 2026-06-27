@@ -3,7 +3,7 @@
 #  Reuses the existing OfficePDFBinder_Main.dist directory.
 # ========================================================
 
-$IssFile        = "setup_office_binder.iss"
+$IssFile        = "packaging\setup_office_binder.iss"
 $SelfScriptName = "build_installer_only.ps1"
 $VersionFile    = "version.py"
 if (-not (Test-Path $VersionFile)) {
@@ -39,8 +39,8 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[2/3] 日英README → HTMLマニュアル変換 & source.zip 作成..."
 Write-Host "========================================================"
 
-if (Test-Path "convert_readme.py") {
-    & $PythonExe "convert_readme.py"
+if (Test-Path "scripts\convert_readme.py") {
+    & $PythonExe "scripts\convert_readme.py"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] README の HTML 変換に失敗しました。" -ForegroundColor Red
         exit $LASTEXITCODE
@@ -50,7 +50,7 @@ if (Test-Path "convert_readme.py") {
     Write-Host "[WARN] convert_readme.py が見つからないため、README.html の再生成をスキップします。" -ForegroundColor Yellow
 }
 
-& ".\create_source_archive.ps1"
+& ".\scripts\create_source_archive.ps1"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE

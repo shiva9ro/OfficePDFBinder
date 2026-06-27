@@ -14,7 +14,7 @@ if ($Env:CONDA_PREFIX -and (Test-Path (Join-Path $Env:CONDA_PREFIX "python.exe")
 }
 
 $ScriptName = "OfficePDFBinder_Main.py"
-$IssFile = "setup_office_binder.iss"
+$IssFile = "packaging\setup_office_binder.iss"
 $IconFile = "app.ico"
 $SelfScriptName = "build_installer.ps1"
 $PortableScriptName = "build_portable.ps1"
@@ -88,7 +88,7 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[2/5] 日英README → HTMLマニュアル変換..."
 Write-Host "========================================================"
 
-& $PythonExe "convert_readme.py"
+& $PythonExe "scripts\convert_readme.py"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] README の HTML 変換に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
@@ -99,7 +99,7 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[3/5] source.zip 作成..."
 Write-Host "========================================================"
 
-& ".\create_source_archive.ps1"
+& ".\scripts\create_source_archive.ps1"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] source.zip の作成に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
@@ -127,7 +127,7 @@ $NuitkaArgs = @(
     "-m", "nuitka",
     "--standalone",
     "--enable-plugin=pyside6",
-    "--windows-console-mode=disable",
+    "--windows-console-mode=attach",
     "--lto=no",
     "--output-dir=.",
     "--windows-icon-from-ico=$IconFile",
@@ -164,7 +164,7 @@ Write-Host "`n========================================================" -Foregro
 Write-Host "[4.5/5] ポータブル版作成..."
 Write-Host "========================================================"
 
-& ".\$PortableScriptName"
+& ".\scripts\$PortableScriptName"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] ポータブル版の作成に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
