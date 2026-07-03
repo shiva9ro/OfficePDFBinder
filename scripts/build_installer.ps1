@@ -126,6 +126,7 @@ Write-Host "========================================================"
 $NuitkaArgs = @(
     "-m", "nuitka",
     "--standalone",
+    "--clang",
     "--enable-plugin=pyside6",
     "--windows-console-mode=attach",
     "--lto=no",

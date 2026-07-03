@@ -345,6 +345,8 @@ marker file next to the executable.</p>
 temporary folders, caches, or registry settings.</p>
 <hr />
 <h2>8. Development and Testing</h2>
+<p>The verified development and test environment uses Python 3.13.11.
+Windows builds use the Visual Studio C++ Clang tools (<code>clang-cl</code>).</p>
 <p>Install runtime and development dependencies with:</p>
 <pre><code class="language-powershell">python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
@@ -352,6 +354,8 @@ python -m pip install -r requirements-dev.txt
 <p>Run automated tests with:</p>
 <pre><code class="language-powershell">python -m pytest
 </code></pre>
+<p>Before distributing a build, verify executable startup, Office conversion,
+CLI behavior, and installation separately.</p>
 <p>Build operations use the single <code>build.ps1</code> entry point. To regenerate only
 the manual and installer from the existing <code>dist</code>, run:</p>
 <pre><code class="language-powershell">.\build.ps1 -Mode Package
