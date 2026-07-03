@@ -14,9 +14,12 @@ GitHub Actionsで再現できない項目は手動で確認します。
 ### 実行方法
 
 ```powershell
+python --version
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest
 ```
+
+確認済みの開発・テスト環境はPython 3.13.11です。
 
 テスト一覧だけを表示する場合:
 
@@ -134,6 +137,35 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] 大きな画像を含むPDFでサムネイルと保存を確認する
 - [ ] 保存先の空き容量不足・書込権限不足を確認する
 - [ ] ネットワーク切断や元ファイル移動時のエラーを確認する
+
+Python環境間の速度比較は、通常のpytestとは分けて実行します。
+
+```powershell
+python tools\benchmark_python_versions.py `
+  --baseline "C:\Path\To\Python312\python.exe" `
+  --candidate "C:\Path\To\Python313\python.exe" `
+  --samples 3 `
+  --warmups 1 `
+  --rounds 3 `
+  --json-output "benchmark_python_312_vs_313.json"
+```
+
+起動、Python処理、PDF結合、JPEG画像書き出しを交互に測定し、中央値と
+候補環境の増減率を表示します。負の増減率は候補環境が高速だったことを示します。
+Python以外の依存ライブラリのバージョンも結果に記録されるため、バージョンが
+異なる場合はPython単体ではなく環境全体の比較として扱います。
+
+ビルド時間を計測する場合は、Python 3.13環境を有効化してビルドします。
+各コマンドの終了時に、結果が`Backup/build-metrics/`のJSONへ保存されます。
+
+```powershell
+conda activate OfficePDFBinder313
+.\build.ps1 -Mode Release
+```
+
+正式なWindowsビルド環境はPython 3.13とVisual StudioのClang-clです。
+Nuitkaのコンパイラキャッシュによって、同一環境での2回目以降の
+`Release`ビルドも大幅に短縮される場合があります。
 
 ## 4. 手動テスト記録
 

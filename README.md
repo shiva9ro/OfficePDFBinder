@@ -280,6 +280,9 @@ temporary folders, caches, or registry settings.
 
 ## 8. Development and Testing
 
+The verified development and test environment uses Python 3.13.11.
+Windows builds use the Visual Studio C++ Clang tools (`clang-cl`).
+
 Install runtime and development dependencies with:
 
 ```powershell
@@ -292,6 +295,9 @@ Run automated tests with:
 ```powershell
 python -m pytest
 ```
+
+Before distributing a build, verify executable startup, Office conversion,
+CLI behavior, and installation separately.
 
 Build operations use the single `build.ps1` entry point. To regenerate only
 the manual and installer from the existing `dist`, run:
