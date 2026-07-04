@@ -56,15 +56,15 @@ PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファ
 GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。
 
 ```text
-OfficePDFBinder_Setup_1.3.1.exe
-OfficePDFBinder_Portable_1.3.1.zip
+OfficePDFBinder_Setup_1.3.2.exe
+OfficePDFBinder_Portable_1.3.2.zip
 ```
 
 インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。
 
 ### インストール時の注意
 
-- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.3.1 をインストールしてください。
+- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.3.2 をインストールしてください。
 - 本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。
 - Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office がインストールされている必要があります。
 
@@ -157,6 +157,7 @@ OfficePDFBinder_Portable_1.3.1.zip
 - 未対応ファイルはスキップし、CSVログに記録します。
 - 既存PDFは初期設定ではスキップします。必要な場合のみ上書きを有効にします。
 - CSVログは、Excelで開きやすいようにUTF-8 BOM付きで出力します。
+- Office変換に失敗した場合は、1秒間隔で最大2回自動的に再試行します。
 
 ### 4.12 コマンドライン一括処理
 

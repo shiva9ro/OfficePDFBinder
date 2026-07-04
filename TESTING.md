@@ -50,8 +50,8 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 | `tests/test_settings.py` | 3 | 設定保存、読込、破損設定からの継続 |
 | `tests/test_runtime_mode.py` | 5 | 通常版/ポータブル版の実行時パス、設定保存先、一時PDF作成先 |
 | `tests/test_ui_baseline.py` | 2 | 日本語UIとヘッダー・フッター設定の現行仕様 |
-| `tests/test_worker_pdf.py` | 34 | PDF読込、異常系、結合、回転、しおり、Office変換制御、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
-| **合計** | **100** | |
+| `tests/test_worker_pdf.py` | 40 | PDF読込、異常系、結合、回転、しおり、Office変換制御、Office所有権と一括処理リトライ、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
+| **合計** | **106** | |
 
 `tests/conftest.py` はテストデータとGUI環境を準備するファイルで、テスト件数には含みません。
 テスト用PDFは実行時に一時フォルダーへ生成し、リポジトリには実データを置きません。
@@ -72,6 +72,9 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] Excelのコメント・メモが、設定ONで印刷/PDF出力されないことを確認する
 - [ ] PowerPointは設定ONでも通常どおりPDF化され、保存確認ダイアログが出ない
 - [ ] Officeファイルを開いた状態でのエラー表示を確認する
+- [ ] Word、Excel、PowerPointをユーザーが開いた状態で変換し、開いていたOfficeが終了しないことを確認する
+- [ ] 一括処理で一時的なOffice変換失敗が発生した場合、最大2回再試行されることを確認する
+- [ ] 通常のGUI保存ではOffice変換が自動再試行されないことを確認する
 - [ ] パスワード保護・破損ファイルで明確なエラーを表示する
 - [ ] 変換後にWord、Excel、PowerPointのプロセスが残らない
 
@@ -127,6 +130,7 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] PowerShellから`OfficePDFBinder_Main.exe --batch-subfolders`を実行できる
 - [ ] CLI実行中にGUIウィンドウや新しいコンソールウィンドウが表示されない
 - [ ] 標準出力に処理件数とログパスが表示され、`$LASTEXITCODE`が結果と一致する
+- [ ] CLI一括処理でもOffice変換失敗時に最大2回再試行され、回復時は終了コード0になる
 - [ ] CLIオプションで、しおり、注釈除去、画像拡大抑制、Word/Excelレビュー情報抑制を切り替えられる
 - [ ] portable版とインストーラー版で同じCLI引数を使用できる
 

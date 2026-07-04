@@ -177,6 +177,8 @@ subfolder directly under a selected parent folder.
 - Unsupported files are skipped and recorded in a CSV log.
 - Existing PDFs are skipped by default, unless overwrite is enabled.
 - The CSV log is written to the output folder using UTF-8 with BOM for Excel.
+- Failed Office conversions are retried automatically up to two times with a
+  one-second delay.
 
 ### 4.11 Command-line batch processing
 

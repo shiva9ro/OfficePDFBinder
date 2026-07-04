@@ -119,13 +119,13 @@
 <hr />
 <h2>3. ダウンロード</h2>
 <p>GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。</p>
-<pre><code class="language-text">OfficePDFBinder_Setup_1.3.1.exe
-OfficePDFBinder_Portable_1.3.1.zip
+<pre><code class="language-text">OfficePDFBinder_Setup_1.3.2.exe
+OfficePDFBinder_Portable_1.3.2.zip
 </code></pre>
 <p>インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。</p>
 <h3>インストール時の注意</h3>
 <ul>
-<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.3.1 をインストールしてください。</li>
+<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.3.2 をインストールしてください。</li>
 <li>本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。</li>
 <li>Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office がインストールされている必要があります。</li>
 </ul>
@@ -211,6 +211,7 @@ OfficePDFBinder_Portable_1.3.1.zip
 <li>未対応ファイルはスキップし、CSVログに記録します。</li>
 <li>既存PDFは初期設定ではスキップします。必要な場合のみ上書きを有効にします。</li>
 <li>CSVログは、Excelで開きやすいようにUTF-8 BOM付きで出力します。</li>
+<li>Office変換に失敗した場合は、1秒間隔で最大2回自動的に再試行します。</li>
 </ul>
 <h3>4.12 コマンドライン一括処理</h3>
 <p>GUIと同じ一括処理をPowerShellやBATから実行できます。</p>

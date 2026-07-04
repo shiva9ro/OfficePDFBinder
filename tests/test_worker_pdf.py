@@ -1,11 +1,13 @@
 import csv
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import fitz
 import pytest
 from PIL import Image
 
+import OfficePDFBinder_Main as app_module
 from OfficePDFBinder_Main import AppWorker
 
 
@@ -447,6 +449,44 @@ def test_batch_merge_subfolders_saves_directly_when_output_does_not_exist(
     assert not list(output_root.glob("*.tmp.pdf"))
 
 
+def test_batch_enables_office_retry_and_logs_recovered_conversion(
+    pdf_factory, tmp_path, monkeypatch
+):
+    input_root = tmp_path / "input"
+    output_root = tmp_path / "output"
+    case_dir = input_root / "case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "report.docx").write_bytes(b"placeholder")
+    converted = pdf_factory("batch-converted.pdf", ["OFFICE"])
+    worker = AppWorker("batch_merge_subfolders")
+    merge_kwargs = []
+
+    def fake_merge(items_data, output_path, **kwargs):
+        merge_kwargs.append(kwargs)
+        Path(output_path).write_bytes(converted.read_bytes())
+        return {
+            "saved": True,
+            "failed_office_conversions": [],
+            "retried_office_conversions": [("Word", "report.docx", 2)],
+            "message": "",
+        }
+
+    monkeypatch.setattr(worker, "_run_merge_save", fake_merge)
+
+    worker._run_batch_merge_subfolders(str(input_root), str(output_root))
+
+    assert merge_kwargs[0]["office_retry_count"] == 2
+    assert merge_kwargs[0]["office_retry_delay_seconds"] == 1.0
+    with open(
+        next(output_root.glob("batch_log_*.csv")),
+        encoding="utf-8-sig",
+        newline="",
+    ) as log_file:
+        row = next(csv.DictReader(log_file))
+    assert row["結果"] == "Success"
+    assert row["メッセージ"] == "Office変換を再試行して成功: 1件"
+
+
 def test_batch_merge_subfolders_follows_bookmark_options(pdf_factory, tmp_path):
     input_root = tmp_path / "input"
     output_root = tmp_path / "output"
@@ -581,13 +621,15 @@ def test_merge_uses_mocked_office_conversion_and_removes_temporary_pdf(
             self.quit_called = True
 
     fake_word = FakeWord()
+
+    def fake_convert(path, app, suppress_errors, suppress_office_markup=False):
+        worker._register_office_app(fake_word, owned=True)
+        return str(converted), fake_word
+
     monkeypatch.setattr(
         worker,
         "_convert_word_to_pdf",
-        lambda path, app, suppress_errors, suppress_office_markup=False: (
-            str(converted),
-            fake_word,
-        ),
+        fake_convert,
     )
 
     worker._run_merge_save(
@@ -618,11 +660,13 @@ def test_failed_office_conversion_is_reported_but_pdf_is_saved(
     output = tmp_path / "partial.pdf"
     worker = AppWorker("merge_save")
     finished = collect_signal(worker.signals.finished)
-    monkeypatch.setattr(
-        worker,
-        "_convert_word_to_pdf",
-        lambda path, app, suppress_errors, suppress_office_markup=False: (None, None),
-    )
+    calls = []
+
+    def fail_conversion(path, app, suppress_errors, suppress_office_markup=False):
+        calls.append((path, app))
+        return None, None
+
+    monkeypatch.setattr(worker, "_convert_word_to_pdf", fail_conversion)
 
     worker._run_merge_save(
         [
@@ -642,6 +686,205 @@ def test_failed_office_conversion_is_reported_but_pdf_is_saved(
         assert "PDF-PAGE" in document[0].get_text()
     assert "failed.docx" in finished[-1][2]
     assert "除外しました" in finished[-1][2]
+    assert len(calls) == 1
+
+
+def test_merge_retries_office_conversion_and_restarts_owned_app(
+    pdf_factory, tmp_path, monkeypatch
+):
+    office_source = tmp_path / "report.docx"
+    office_source.write_bytes(b"placeholder")
+    converted = pdf_factory("converted-retry.pdf", ["RETRIED"])
+    output = tmp_path / "retried.pdf"
+    worker = AppWorker("merge_save")
+    calls = []
+    sleeps = []
+
+    class FakeWord:
+        def __init__(self):
+            self.quit_called = False
+
+        def Quit(self):
+            self.quit_called = True
+
+    failed_app = FakeWord()
+    successful_app = FakeWord()
+
+    def fake_convert(path, app, suppress_errors, suppress_office_markup=False):
+        calls.append(app)
+        if len(calls) == 1:
+            worker._register_office_app(failed_app, owned=True)
+            return None, failed_app
+        worker._register_office_app(successful_app, owned=True)
+        return str(converted), successful_app
+
+    monkeypatch.setattr(worker, "_convert_word_to_pdf", fake_convert)
+    monkeypatch.setattr(app_module.time, "sleep", sleeps.append)
+
+    result = worker._run_merge_save(
+        [
+            {
+                "type": "word",
+                "path": str(office_source),
+                "original_path": str(office_source),
+                "rotation": 0,
+            }
+        ],
+        str(output),
+        office_retry_count=2,
+        office_retry_delay_seconds=0.25,
+    )
+
+    assert calls == [None, None]
+    assert sleeps == [0.25]
+    assert failed_app.quit_called is True
+    assert successful_app.quit_called is True
+    assert result["retried_office_conversions"] == [("Word", "report.docx", 2)]
+    with fitz.open(output) as document:
+        assert "RETRIED" in document[0].get_text()
+
+
+def test_merge_does_not_retry_when_office_conversion_is_unavailable(
+    pdf_factory, tmp_path, monkeypatch
+):
+    pdf_source = pdf_factory("fallback.pdf", ["PDF"])
+    office_source = tmp_path / "report.docx"
+    office_source.write_bytes(b"placeholder")
+    output = tmp_path / "without-office.pdf"
+    worker = AppWorker("merge_save")
+
+    monkeypatch.setattr(app_module, "win32com", None)
+    monkeypatch.setattr(
+        app_module.time,
+        "sleep",
+        lambda _seconds: pytest.fail("Unavailable Office must not be retried"),
+    )
+
+    result = worker._run_merge_save(
+        [
+            {
+                "type": "word",
+                "path": str(office_source),
+                "original_path": str(office_source),
+                "rotation": 0,
+            },
+            pdf_item(pdf_source, 0),
+        ],
+        str(output),
+        office_retry_count=2,
+    )
+
+    assert result["failed_office_conversions"] == [("Word", "report.docx")]
+    with fitz.open(output) as document:
+        assert "PDF" in document[0].get_text()
+
+
+def test_merge_retries_shared_powerpoint_without_quitting_or_restarting(
+    pdf_factory, tmp_path, monkeypatch
+):
+    office_source = tmp_path / "slides.pptx"
+    office_source.write_bytes(b"placeholder")
+    converted = pdf_factory("converted-slides.pdf", ["SLIDES"])
+    output = tmp_path / "slides.pdf"
+    worker = AppWorker("merge_save")
+    calls = []
+
+    class SharedPowerPoint:
+        def __init__(self):
+            self.quit_called = False
+
+        def Quit(self):
+            self.quit_called = True
+
+    shared_app = SharedPowerPoint()
+
+    def fake_convert(path, app, suppress_errors, suppress_office_markup=False):
+        calls.append(app)
+        if len(calls) == 1:
+            return None, shared_app
+        return str(converted), shared_app
+
+    monkeypatch.setattr(worker, "_convert_powerpoint_to_pdf", fake_convert)
+    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+
+    worker._run_merge_save(
+        [
+            {
+                "type": "powerpoint",
+                "path": str(office_source),
+                "original_path": str(office_source),
+                "rotation": 0,
+            }
+        ],
+        str(output),
+        office_retry_count=2,
+    )
+
+    assert calls == [None, shared_app]
+    assert shared_app.quit_called is False
+
+
+def test_create_office_app_uses_dispatchex_for_owned_word(monkeypatch):
+    worker = AppWorker("merge_save")
+
+    class FakeWord:
+        def __init__(self):
+            self.DisplayAlerts = True
+            self.Visible = True
+            self.quit_called = False
+
+        def Quit(self):
+            self.quit_called = True
+
+    fake_word = FakeWord()
+    dispatch_calls = []
+    client = SimpleNamespace(
+        DispatchEx=lambda prog_id: dispatch_calls.append(prog_id) or fake_word
+    )
+    monkeypatch.setattr(app_module, "win32com", SimpleNamespace(client=client))
+
+    app = worker._create_office_app("Word")
+
+    assert app is fake_word
+    assert dispatch_calls == ["Word.Application"]
+    assert worker._is_owned_office_app(app) is True
+    assert app.DisplayAlerts is False
+    assert app.Visible is False
+    assert worker._quit_owned_office_app(app, "Word") is True
+    assert app.quit_called is True
+
+
+def test_create_office_app_reuses_existing_powerpoint_without_ownership(monkeypatch):
+    worker = AppWorker("merge_save")
+
+    class ExistingPowerPoint:
+        def __init__(self):
+            self.DisplayAlerts = True
+            self.WindowState = 7
+            self.quit_called = False
+
+        def Quit(self):
+            self.quit_called = True
+
+    existing = ExistingPowerPoint()
+
+    def unexpected_dispatch(_prog_id):
+        raise AssertionError("DispatchEx must not run for an active PowerPoint")
+
+    client = SimpleNamespace(
+        GetActiveObject=lambda _prog_id: existing,
+        DispatchEx=unexpected_dispatch,
+    )
+    monkeypatch.setattr(app_module, "win32com", SimpleNamespace(client=client))
+
+    app = worker._create_office_app("PowerPoint")
+
+    assert app is existing
+    assert worker._is_owned_office_app(app) is False
+    assert app.DisplayAlerts is True
+    assert app.WindowState == 7
+    assert worker._quit_owned_office_app(app, "PowerPoint") is False
+    assert app.quit_called is False
 
 
 def test_merge_passes_suppress_office_markup_to_office_converter(
