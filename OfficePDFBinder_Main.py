@@ -667,6 +667,66 @@ class AppWorker(QRunnable):
         self.task_name = task_name
         self.kwargs = kwargs
         self.is_running = True
+        self._owned_office_app_ids = set()
+        self._office_conversion_unavailable = False
+
+    def _register_office_app(self, app, owned):
+        """このワーカーが安全に終了できるOfficeインスタンスか記録する。"""
+        if app is not None and owned:
+            self._owned_office_app_ids.add(id(app))
+        return app
+
+    def _is_owned_office_app(self, app):
+        return app is not None and id(app) in self._owned_office_app_ids
+
+    def _forget_office_app(self, app):
+        if app is not None:
+            self._owned_office_app_ids.discard(id(app))
+
+    def _quit_owned_office_app(self, app, app_name):
+        """ワーカーが所有するOfficeだけを終了し、終了対象だったかを返す。"""
+        if not self._is_owned_office_app(app):
+            return False
+        try:
+            app.Quit()
+        except Exception as e:
+            print(f"警告: {app_name}アプリケーションの終了に失敗しました: {e}")
+        finally:
+            self._forget_office_app(app)
+        return True
+
+    def _create_office_app(self, app_name):
+        """ユーザーのOfficeセッションを極力避けて変換用アプリを取得する。"""
+        prog_id = f"{app_name}.Application"
+        owned = True
+
+        if app_name == "PowerPoint":
+            try:
+                # PowerPointはMultiUseのため、既存インスタンスがある場合は共有される。
+                # 共有インスタンスは設定変更やQuitの対象にしない。
+                app = win32com.client.GetActiveObject(prog_id)
+                owned = False
+            except Exception:
+                app = win32com.client.DispatchEx(prog_id)
+        else:
+            # WordとExcelは専用インスタンスを作り、ユーザーの作業を巻き込まない。
+            app = win32com.client.DispatchEx(prog_id)
+
+        self._register_office_app(app, owned)
+        if owned:
+            app.DisplayAlerts = False
+            if app_name == "PowerPoint":
+                try:
+                    app.WindowState = 2
+                    app.Top = -4000
+                    app.Left = -4000
+                except Exception as e:
+                    print(
+                        f"警告: PowerPointウィンドウの最小化/移動に失敗しました。: {e}"
+                    )
+            elif hasattr(app, "Visible"):
+                app.Visible = False
+        return app
 
     @Slot()
     def run(self):
@@ -860,6 +920,8 @@ class AppWorker(QRunnable):
         emit_completion=True,
         emit_progress=True,
         collected_errors=None,
+        office_retry_count=0,
+        office_retry_delay_seconds=1.0,
     ):
         def report_error(title, message):
             if collected_errors is not None:
@@ -916,6 +978,7 @@ class AppWorker(QRunnable):
         final_doc = fitz.open()
         temp_files_to_clean = []
         failed_office_conversions = []
+        retried_office_conversions = []
         try:
             # --- ステップ1: しおり情報を準備 ---
             pending_toc_entries = []
@@ -992,14 +1055,14 @@ class AppWorker(QRunnable):
 
                     # アプリケーションインスタンスを取得または作成
                     if office_type not in office_apps:
-                        self.signals.non_cancellable_started.emit(
-                            translate("Worker", "{app}ファイルを変換中...").format(
-                                app=app_name
-                            )
-                        )
                         office_conversion_started = True
                         office_apps[office_type] = None
 
+                    self.signals.non_cancellable_started.emit(
+                        translate("Worker", "{app}ファイルを変換中...").format(
+                            app=app_name
+                        )
+                    )
                     app_instance = office_apps[office_type]
 
                     converter = None
@@ -1011,38 +1074,65 @@ class AppWorker(QRunnable):
                         converter = self._convert_powerpoint_to_pdf
 
                     if converter:
-                        temp_pdf, app_instance = converter(
-                            path,
-                            app_instance,
-                            suppress_errors=True,
-                            suppress_office_markup=suppress_office_markup,
-                        )
-                        office_apps[office_type] = (
-                            app_instance  # 更新されたインスタンスを保存
-                        )
-                        if not temp_pdf:
-                            failed_office_conversions.append(
-                                (app_name, os.path.basename(path))
+                        max_attempts = 1 + max(0, int(office_retry_count))
+                        for attempt in range(1, max_attempts + 1):
+                            temp_pdf, app_instance = converter(
+                                path,
+                                app_instance,
+                                suppress_errors=True,
+                                suppress_office_markup=suppress_office_markup,
                             )
+                            office_apps[office_type] = app_instance
+                            if temp_pdf:
+                                if attempt > 1:
+                                    retried_office_conversions.append(
+                                        (app_name, os.path.basename(path), attempt)
+                                    )
+                                temp_files_to_clean.append(temp_pdf)
+                                task["converted_pdf_path"] = temp_pdf
+                                break
+
+                            if (
+                                self._office_conversion_unavailable
+                                or attempt >= max_attempts
+                            ):
+                                failed_office_conversions.append(
+                                    (app_name, os.path.basename(path))
+                                )
+                                break
+
+                            _debug_log(
+                                "[OFFICE RETRY] "
+                                f"{app_name}: {os.path.basename(path)} "
+                                f"attempt={attempt + 1}/{max_attempts}"
+                            )
+                            self.signals.non_cancellable_started.emit(
+                                translate(
+                                    "Worker",
+                                    "{app}ファイルを再試行中 ({attempt}/{total})...",
+                                ).format(
+                                    app=app_name,
+                                    attempt=attempt + 1,
+                                    total=max_attempts,
+                                )
+                            )
+                            if self._quit_owned_office_app(app_instance, app_name):
+                                app_instance = None
+                                office_apps[office_type] = None
+                            time.sleep(max(0.0, office_retry_delay_seconds))
+                        if not temp_pdf:
                             continue
-                        temp_files_to_clean.append(temp_pdf)
-                        # 変換後のPDFパスをタスクに保存
-                        task["converted_pdf_path"] = temp_pdf
 
                 # すべてのOfficeアプリケーションを終了
                 for office_type, app_instance in office_apps.items():
                     if app_instance:
-                        try:
-                            app_instance.Quit()
-                        except Exception as e:
-                            app_name = office_type.capitalize()
-                            if office_type == "excel":
-                                app_name = "Excel"
-                            elif office_type == "powerpoint":
-                                app_name = "PowerPoint"
-                            print(
-                                f"警告: {app_name}アプリケーションの終了に失敗しました: {e}"
-                            )
+                        app_name = office_type.capitalize()
+                        if office_type == "excel":
+                            app_name = "Excel"
+                        elif office_type == "powerpoint":
+                            app_name = "PowerPoint"
+                        self._quit_owned_office_app(app_instance, app_name)
+                        self._forget_office_app(app_instance)
 
                 # 変換が行われた場合のみ終了シグナルを送信
                 if office_conversion_started:
@@ -1051,10 +1141,8 @@ class AppWorker(QRunnable):
                 # エラー時もアプリケーションを終了
                 for app_instance in office_apps.values():
                     if app_instance:
-                        try:
-                            app_instance.Quit()
-                        except Exception:
-                            pass
+                        self._quit_owned_office_app(app_instance, "Office")
+                        self._forget_office_app(app_instance)
                 raise
 
             # 順序を保持したタスクリストを使用
@@ -1438,6 +1526,7 @@ class AppWorker(QRunnable):
                 return {
                     "saved": True,
                     "failed_office_conversions": failed_office_conversions,
+                    "retried_office_conversions": retried_office_conversions,
                     "message": message,
                 }
 
@@ -1755,6 +1844,8 @@ class AppWorker(QRunnable):
                     emit_completion=False,
                     emit_progress=False,
                     collected_errors=merge_errors,
+                    office_retry_count=2,
+                    office_retry_delay_seconds=1.0,
                 )
 
                 if not merge_result or not save_path.exists():
@@ -1780,6 +1871,7 @@ class AppWorker(QRunnable):
                 if use_temp_output:
                     os.replace(temp_output, output_pdf)
                 failed_office = merge_result.get("failed_office_conversions", [])
+                retried_office = merge_result.get("retried_office_conversions", [])
                 if failed_office:
                     warning_messages.append(
                         translate(
@@ -1790,13 +1882,20 @@ class AppWorker(QRunnable):
                     warning_messages.extend(message for _title, message in merge_errors)
 
                 result = "Warning" if warning_messages else "Success"
+                result_messages = list(warning_messages)
+                if retried_office:
+                    result_messages.append(
+                        translate(
+                            "Worker", "Office変換を再試行して成功: {count}件"
+                        ).format(count=len(retried_office))
+                    )
                 add_log(
                     subfolder,
                     output_pdf,
                     len(supported_files),
                     len(skipped_files),
                     result,
-                    " / ".join(warning_messages),
+                    " / ".join(result_messages),
                 )
             except Exception as e:
                 if use_temp_output and temp_output.exists():
@@ -1860,6 +1959,7 @@ class AppWorker(QRunnable):
     ):
         """OfficeファイルをPDFに変換（アプリケーションインスタンスを再利用可能）"""
         if not win32com:
+            self._office_conversion_unavailable = True
             if not suppress_errors:
                 self.signals.error.emit(
                     translate("Worker", "Office変換機能を利用できません"),
@@ -1869,24 +1969,13 @@ class AppWorker(QRunnable):
                     ),
                 )
             return None, None
+        self._office_conversion_unavailable = False
 
         # アプリケーションインスタンスが提供されていない場合は新規作成
         app = app_instance
         if app is None:
             try:
-                app = win32com.client.Dispatch(f"{app_name}.Application")
-                app.DisplayAlerts = False
-                if app_name == "PowerPoint":
-                    try:
-                        app.WindowState = 2
-                        app.Top = -4000
-                        app.Left = -4000
-                    except Exception as e:
-                        print(
-                            f"警告: PowerPointウィンドウの最小化/移動に失敗しました。: {e}"
-                        )
-                elif hasattr(app, "Visible"):
-                    app.Visible = False
+                app = self._create_office_app(app_name)
             except Exception as e:
                 if not suppress_errors:
                     self.signals.error.emit(
@@ -2709,12 +2798,8 @@ class AppWorker(QRunnable):
 
                 # アプリケーションを終了
                 if app_instance:
-                    try:
-                        app_instance.Quit()
-                    except Exception as e:
-                        print(
-                            f"警告: {app_name}アプリケーションの終了に失敗しました: {e}"
-                        )
+                    self._quit_owned_office_app(app_instance, app_name)
+                    self._forget_office_app(app_instance)
         except Exception as e:
             self.signals.error.emit(
                 translate("Worker", "Officeファイルを変換できません"),
