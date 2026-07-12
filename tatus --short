@@ -1,0 +1,33 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'NOTICE.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'OfficePDFBinder_Main.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.ja.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packaging/setup_office_binder.iss', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'requirements.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_cli.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_gui_operations.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_settings.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_worker_pdf.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'translations/OfficePDFBinder_en.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'version.py', LF will be replaced by CRLF the next time Git touches it
+ .gitignore                                  |    1 [32m+[m
+ NOTICE.txt                                  |   51 [32m+[m[31m-[m
+ OfficePDFBinder_Main.py                     | 1315 [32m++++++++++++++++++++++++[m[31m---[m
+ README.html                                 |   27 [32m+[m[31m-[m
+ README.ja.html                              |   24 [32m+[m[31m-[m
+ README.ja.md                                |   24 [32m+[m[31m-[m
+ README.md                                   |   27 [32m+[m[31m-[m
+ docs/images/screenshot-header-footer-en.png |  Bin [31m126946[m -> [32m352137[m bytes
+ docs/images/screenshot-header-footer.png    |  Bin [31m162095[m -> [32m356021[m bytes
+ docs/images/screenshot-main-en.png          |  Bin [31m138952[m -> [32m416059[m bytes
+ docs/images/screenshot-main.png             |  Bin [31m164927[m -> [32m413622[m bytes
+ packaging/setup_office_binder.iss           |   31 [32m+[m[31m-[m
+ requirements.txt                            |    1 [32m+[m
+ tests/test_cli.py                           |   44 [32m+[m
+ tests/test_gui_operations.py                |  107 [32m++[m[31m-[m
+ tests/test_settings.py                      |   10 [32m+[m[31m-[m
+ tests/test_worker_pdf.py                    |  185 [32m+++[m[31m-[m
+ translations/OfficePDFBinder_en.ts          |  827 [32m++++++++++[m[31m-------[m
+ version.py                                  |    2 [32m+[m[31m-[m
+ 19 files changed, 2205 insertions(+), 471 deletions(-)

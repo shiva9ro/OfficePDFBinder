@@ -1,7 +1,14 @@
 import copy
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFileDialog, QInputDialog, QListWidgetItem, QMessageBox
+from PySide6.QtWidgets import (
+    QDialogButtonBox,
+    QFileDialog,
+    QInputDialog,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+)
 
 import OfficePDFBinder_Main as app_module
 
@@ -50,6 +57,95 @@ def test_batch_dialog_output_tracks_input_until_user_edits(qtbot, tmp_path):
     second_input = str(tmp_path / "input2")
     dialog.input_root_edit.setText(second_input)
     assert dialog.output_root_edit.text() == custom_output
+
+
+def test_page_list_selection_style_has_no_filename_border(main_window):
+    style = main_window.page_list_widget.styleSheet()
+
+    assert "QListWidget::item:selected" in style
+    assert "border: 2px" not in style
+    assert "outline: none" in style
+
+
+def test_office_converter_settings_are_three_choices(main_window):
+    action_texts = {
+        action.text() for action in main_window.office_converter_action_group.actions()
+    }
+
+    assert action_texts == {
+        "自動",
+        "Microsoft Officeを優先",
+        "LibreOfficeを優先",
+    }
+    assert not hasattr(main_window, "select_libreoffice_path_action")
+    assert not hasattr(main_window, "clear_libreoffice_path_action")
+
+
+def test_settings_menu_groups_image_and_comment_options(main_window):
+    actions = [
+        action for action in main_window.settings_menu.actions() if not action.isSeparator()
+    ]
+    office_converter_action = next(
+        action
+        for action in actions
+        if action.menu() and action.menu().title() == "Office変換エンジン"
+    )
+
+    assert actions.index(main_window.disable_image_upscaling_action) < actions.index(
+        main_window.remove_pdf_annotations_action
+    )
+    assert actions.index(main_window.remove_pdf_annotations_action) < actions.index(
+        main_window.suppress_office_markup_action
+    )
+    assert actions.index(main_window.suppress_office_markup_action) < actions.index(
+        office_converter_action
+    )
+
+
+def test_copyable_message_dialog_keeps_copy_button_auxiliary(main_window, qtbot):
+    dialog, button_box, _, default_widget = main_window._build_copyable_message_dialog(
+        "保存完了",
+        "PDFを保存しました:\nC:/tmp/sample.pdf\n\n一覧をクリアしますか？",
+        icon=QMessageBox.Icon.Information,
+        buttons=(
+            QDialogButtonBox.StandardButton.Yes
+            | QDialogButtonBox.StandardButton.No
+        ),
+        default_button=QDialogButtonBox.StandardButton.No,
+    )
+    qtbot.addWidget(dialog)
+
+    copy_buttons = [
+        button
+        for button in dialog.findChildren(QPushButton)
+        if button.text() == "コピー"
+    ]
+    assert len(copy_buttons) == 1
+    assert copy_buttons[0].focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert not copy_buttons[0].autoDefault()
+    assert not copy_buttons[0].isDefault()
+
+    yes_button = button_box.button(QDialogButtonBox.StandardButton.Yes)
+    no_button = button_box.button(QDialogButtonBox.StandardButton.No)
+    assert yes_button.text() == "はい"
+    assert no_button.text() == "いいえ"
+    assert default_widget == no_button
+    assert no_button.isDefault()
+    assert no_button.autoDefault()
+    assert not yes_button.isDefault()
+    assert not yes_button.autoDefault()
+
+    dialog.show()
+    qtbot.wait(50)
+    assert dialog.focusWidget() == no_button
+
+
+def test_toolbar_prioritizes_add_and_merge_actions(main_window):
+    actions = [action for action in main_window.main_toolbar.actions() if not action.isSeparator()]
+
+    assert actions[:2] == [main_window.add_action, main_window.merge_action]
+    assert "min-width: 68px;" in app_module.QSS
+    assert main_window.merge_action.text() == "結合\n保存"
 
 
 def test_move_multiple_selected_pages_preserves_relative_order(
@@ -253,6 +349,15 @@ def test_status_bar_counts_pdf_pages_and_unique_office_files(
 
     assert main_window.file_status_label.text() == "PDFページ: 2 | Word: 1 | 画像: 1"
     assert main_window.selection_status_label.text() == "選択中: 1件"
+
+
+def test_status_bar_counts_svg_as_image(main_window, tmp_path):
+    svg = tmp_path / "diagram.svg"
+    add_raw_item(main_window, item_data(svg, item_type="svg"))
+
+    main_window.update_status_bar()
+
+    assert main_window.file_status_label.text() == "画像: 1"
 
 
 def test_add_blank_page_inserts_after_selection_and_counts_as_pdf_page(

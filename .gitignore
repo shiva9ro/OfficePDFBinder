@@ -51,6 +51,7 @@ samples/
 docs/presentation/
 docs/OfficePDFBinder_Main.pdf
 OfficePDFBinder_Main.py.txt
+prepare_pdf_merge.ps1
 
 # Logs
 *.log

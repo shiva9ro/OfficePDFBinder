@@ -40,14 +40,94 @@ def blank_item(name="空白ページ 1"):
     }
 
 
-def image_item(path, rotation=0):
+def image_item(path, rotation=0, page_num=0):
     return {
         "type": "image",
+        "path": str(path),
+        "original_path": str(path),
+        "page_num": page_num,
+        "rotation": rotation,
+    }
+
+
+def svg_item(path, rotation=0):
+    return {
+        "type": "svg",
         "path": str(path),
         "original_path": str(path),
         "page_num": 0,
         "rotation": rotation,
     }
+
+
+def write_sample_svg(path):
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+        '<rect width="200" height="100" fill="white"/>'
+        '<text x="12" y="55" font-size="24">SVG</text>'
+        "</svg>",
+        encoding="utf-8",
+    )
+
+
+def force_microsoft_office_converter(worker, monkeypatch):
+    monkeypatch.setattr(
+        worker,
+        "_resolve_office_converter",
+        lambda *_args, **_kwargs: {
+            "engine": app_module.OFFICE_CONVERTER_MICROSOFT,
+            "reason": "test",
+            "libreoffice_path": None,
+            "libreoffice_version": "",
+        },
+    )
+
+
+def office_task(path, item_type="word"):
+    return str(path), {"type": item_type}
+
+
+def test_resolve_office_converter_falls_back_from_microsoft_to_libreoffice(
+    monkeypatch, tmp_path
+):
+    worker = AppWorker("merge_save")
+    monkeypatch.setattr(
+        worker, "_is_microsoft_office_available_for_types", lambda _types: (False, "no")
+    )
+    monkeypatch.setattr(
+        worker, "_find_libreoffice_executable", lambda _path=None: "soffice.com"
+    )
+    monkeypatch.setattr(
+        worker, "_get_libreoffice_version", lambda _exe: ("LibreOffice 25", "")
+    )
+
+    result = worker._resolve_office_converter(
+        [office_task(tmp_path / "report.docx")],
+        app_module.OFFICE_CONVERTER_MICROSOFT,
+    )
+
+    assert result["engine"] == app_module.OFFICE_CONVERTER_LIBREOFFICE
+    assert "LibreOffice" in result["reason"]
+
+
+def test_resolve_office_converter_falls_back_from_libreoffice_to_microsoft(
+    monkeypatch, tmp_path
+):
+    worker = AppWorker("merge_save")
+    monkeypatch.setattr(
+        worker, "_is_microsoft_office_available_for_types", lambda _types: (True, "")
+    )
+    monkeypatch.setattr(
+        worker, "_find_libreoffice_executable", lambda _path=None: None
+    )
+
+    result = worker._resolve_office_converter(
+        [office_task(tmp_path / "report.docx")],
+        app_module.OFFICE_CONVERTER_LIBREOFFICE,
+    )
+
+    assert result["engine"] == app_module.OFFICE_CONVERTER_MICROSOFT
+    assert "Microsoft Office" in result["reason"]
 
 
 def test_add_pdf_emits_pages_and_existing_bookmarks(pdf_factory):
@@ -100,6 +180,33 @@ def test_add_image_file_classifies_after_validation(tmp_path):
     worker._run_add_files([str(source)])
 
     assert items[0][0]["type"] == "image"
+    assert items[0][0]["original_path"] == str(source)
+    assert items[0][0]["page_num"] == 0
+
+
+def test_add_multipage_tiff_expands_frames(tmp_path):
+    source = tmp_path / "scan.tiff"
+    first = Image.new("RGB", (120, 80), "blue")
+    second = Image.new("RGB", (120, 80), "green")
+    first.save(source, save_all=True, append_images=[second])
+    worker = AppWorker("add_files")
+    item_batches = collect_signal(worker.signals.items_ready)
+
+    worker._run_add_files([str(source)])
+
+    assert [item["type"] for item in item_batches[0][0]] == ["image", "image"]
+    assert [item["page_num"] for item in item_batches[0][0]] == [0, 1]
+
+
+def test_add_svg_file_classifies_after_validation(tmp_path):
+    source = tmp_path / "diagram.svg"
+    write_sample_svg(source)
+    worker = AppWorker("add_files")
+    items = collect_signal(worker.signals.item_ready)
+
+    worker._run_add_files([str(source)])
+
+    assert items[0][0]["type"] == "svg"
     assert items[0][0]["original_path"] == str(source)
     assert items[0][0]["page_num"] == 0
 
@@ -210,6 +317,7 @@ def test_merge_can_insert_blank_page_between_pdf_pages(pdf_factory, tmp_path):
             pdf_item(source, 1),
         ],
         str(output),
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     with fitz.open(output) as document:
@@ -300,6 +408,53 @@ def test_merge_can_rotate_image_page(tmp_path):
     with fitz.open(output) as document:
         assert document.page_count == 1
         assert document[0].rotation == 90
+
+
+def test_merge_can_insert_webp_image_as_pdf_page(tmp_path):
+    image_path = tmp_path / "photo.webp"
+    try:
+        Image.new("RGB", (240, 120), "blue").save(image_path)
+    except OSError as exc:
+        pytest.skip(f"WebP is not available in this Pillow build: {exc}")
+    output = tmp_path / "webp.pdf"
+    worker = AppWorker("merge_save")
+
+    worker._run_merge_save([image_item(image_path)], str(output))
+
+    with fitz.open(output) as document:
+        assert document.page_count == 1
+        assert document[0].get_images(full=True)
+
+
+def test_merge_can_insert_selected_tiff_frame(tmp_path):
+    image_path = tmp_path / "scan.tiff"
+    first = Image.new("RGB", (120, 80), "blue")
+    second = Image.new("RGB", (80, 120), "green")
+    first.save(image_path, save_all=True, append_images=[second])
+    output = tmp_path / "tiff.pdf"
+    worker = AppWorker("merge_save")
+
+    worker._run_merge_save([image_item(image_path, page_num=1)], str(output))
+
+    with fitz.open(output) as document:
+        assert document.page_count == 1
+        page = document[0]
+        assert round(page.rect.width) == 595
+        assert round(page.rect.height) == 842
+        assert page.get_images(full=True)
+
+
+def test_merge_can_insert_svg_as_vector_pdf_page(tmp_path):
+    svg_path = tmp_path / "diagram.svg"
+    write_sample_svg(svg_path)
+    output = tmp_path / "svg.pdf"
+    worker = AppWorker("merge_save")
+
+    worker._run_merge_save([svg_item(svg_path)], str(output))
+
+    with fitz.open(output) as document:
+        assert document.page_count == 1
+        assert "SVG" in document[0].get_text()
 
 
 def test_merge_can_remove_pdf_annotations(tmp_path):
@@ -605,6 +760,23 @@ def test_merge_can_add_header_footer_and_page_number(pdf_factory, tmp_path):
         assert "Page 1" in text
 
 
+def test_subprocess_capture_uses_devnull_stdin_for_windowed_exe(monkeypatch):
+    calls = []
+
+    def fake_run(arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+
+    result = app_module._subprocess_run_capture(["soffice.com", "--version"], 15)
+
+    assert result.stdout == "ok"
+    assert calls[0][1]["stdin"] is app_module.subprocess.DEVNULL
+    assert calls[0][1]["stdout"] is app_module.subprocess.PIPE
+    assert calls[0][1]["stderr"] is app_module.subprocess.PIPE
+
+
 def test_merge_uses_mocked_office_conversion_and_removes_temporary_pdf(
     pdf_factory, tmp_path, monkeypatch
 ):
@@ -626,6 +798,7 @@ def test_merge_uses_mocked_office_conversion_and_removes_temporary_pdf(
         worker._register_office_app(fake_word, owned=True)
         return str(converted), fake_word
 
+    force_microsoft_office_converter(worker, monkeypatch)
     monkeypatch.setattr(
         worker,
         "_convert_word_to_pdf",
@@ -642,6 +815,7 @@ def test_merge_uses_mocked_office_conversion_and_removes_temporary_pdf(
             }
         ],
         str(output),
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     assert fake_word.quit_called is True
@@ -667,6 +841,7 @@ def test_failed_office_conversion_is_reported_but_pdf_is_saved(
         return None, None
 
     monkeypatch.setattr(worker, "_convert_word_to_pdf", fail_conversion)
+    force_microsoft_office_converter(worker, monkeypatch)
 
     worker._run_merge_save(
         [
@@ -719,6 +894,7 @@ def test_merge_retries_office_conversion_and_restarts_owned_app(
         return str(converted), successful_app
 
     monkeypatch.setattr(worker, "_convert_word_to_pdf", fake_convert)
+    force_microsoft_office_converter(worker, monkeypatch)
     monkeypatch.setattr(app_module.time, "sleep", sleeps.append)
 
     result = worker._run_merge_save(
@@ -733,6 +909,7 @@ def test_merge_retries_office_conversion_and_restarts_owned_app(
         str(output),
         office_retry_count=2,
         office_retry_delay_seconds=0.25,
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     assert calls == [None, None]
@@ -754,6 +931,7 @@ def test_merge_does_not_retry_when_office_conversion_is_unavailable(
     worker = AppWorker("merge_save")
 
     monkeypatch.setattr(app_module, "win32com", None)
+    force_microsoft_office_converter(worker, monkeypatch)
     monkeypatch.setattr(
         app_module.time,
         "sleep",
@@ -772,6 +950,7 @@ def test_merge_does_not_retry_when_office_conversion_is_unavailable(
         ],
         str(output),
         office_retry_count=2,
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     assert result["failed_office_conversions"] == [("Word", "report.docx")]
@@ -805,6 +984,7 @@ def test_merge_retries_shared_powerpoint_without_quitting_or_restarting(
         return str(converted), shared_app
 
     monkeypatch.setattr(worker, "_convert_powerpoint_to_pdf", fake_convert)
+    force_microsoft_office_converter(worker, monkeypatch)
     monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
 
     worker._run_merge_save(
@@ -818,6 +998,7 @@ def test_merge_retries_shared_powerpoint_without_quitting_or_restarting(
         ],
         str(output),
         office_retry_count=2,
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     assert calls == [None, shared_app]
@@ -906,6 +1087,7 @@ def test_merge_passes_suppress_office_markup_to_office_converter(
         return str(converted), FakeWord()
 
     monkeypatch.setattr(worker, "_convert_word_to_pdf", fake_convert)
+    force_microsoft_office_converter(worker, monkeypatch)
 
     worker._run_merge_save(
         [
@@ -918,6 +1100,7 @@ def test_merge_passes_suppress_office_markup_to_office_converter(
         ],
         str(output),
         suppress_office_markup=True,
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
     )
 
     assert calls == [True]

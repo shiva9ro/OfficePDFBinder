@@ -10,6 +10,8 @@ def test_save_settings_writes_current_user_preferences(main_window):
     main_window.remove_pdf_annotations = True
     main_window.disable_image_upscaling = True
     main_window.suppress_office_markup = True
+    main_window.office_converter = "libreoffice"
+    main_window.libreoffice_path = r"C:\Program Files\LibreOffice\program\soffice.com"
     main_window.page_number_settings.update(
         {
             "enabled": True,
@@ -48,6 +50,8 @@ def test_save_settings_writes_current_user_preferences(main_window):
     assert config.getboolean("PdfImport", "remove_annotations") is True
     assert config.getboolean("ImageConversion", "disable_upscaling") is True
     assert config.getboolean("OfficeConversion", "suppress_markup") is True
+    assert config.get("OfficeConversion", "converter") == "libreoffice"
+    assert not config.has_option("OfficeConversion", "libreoffice_path")
     assert config.getboolean("PageNumbers", "enabled") is True
     assert config.get("PageNumbers", "alignment") == "right"
     assert config.getint("PageNumbers", "start_number") == 5
@@ -64,7 +68,9 @@ def test_load_settings_restores_supported_preferences(
         "[Bookmarks]\nauto_generation = false\nshow_on_open = false\n"
         "[PdfImport]\nremove_annotations = true\n"
         "[ImageConversion]\ndisable_upscaling = true\n"
-        "[OfficeConversion]\nsuppress_markup = true\n",
+        "[OfficeConversion]\nsuppress_markup = true\n"
+        "converter = libreoffice\n"
+        "libreoffice_path = C:\\Program Files\\LibreOffice\\program\\soffice.com\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(
@@ -82,6 +88,8 @@ def test_load_settings_restores_supported_preferences(
     assert window.remove_pdf_annotations is True
     assert window.disable_image_upscaling is True
     assert window.suppress_office_markup is True
+    assert window.office_converter == "libreoffice"
+    assert window.libreoffice_path == ""
 
 
 def test_load_broken_settings_continues_with_defaults(

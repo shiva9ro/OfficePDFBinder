@@ -3,8 +3,8 @@
 English | [日本語](README.ja.md)
 
 Office PDF Binder is a Windows desktop application that combines PDF, Word,
-Excel, and PowerPoint files into a single PDF. You can organize, delete, and
-rotate individual PDF pages before saving the result.
+Excel, PowerPoint, and image files into a single PDF. You can organize, delete,
+and rotate individual PDF pages before saving the result.
 
 ![Office PDF Binder main window](docs/images/screenshot-main-en.png)
 
@@ -13,11 +13,12 @@ rotate individual PDF pages before saving the result.
 ## 1. Requirements
 
 - Windows 10 or Windows 11 (64-bit)
-- Microsoft Office when converting Word, Excel, or PowerPoint files
+- Microsoft Office or LibreOffice when converting Word, Excel, or PowerPoint files
 - No separate Python installation is required for packaged releases
 
-Office files are converted through the locally installed Microsoft Office
-applications. Office PDF Binder does not upload documents to an online service.
+Office files are converted through locally installed Microsoft Office or
+LibreOffice applications. Office PDF Binder does not upload documents to an
+online service.
 PDF files are loaded as individual pages. Word, Excel, and PowerPoint documents
 are added as files and converted to PDF when the combined PDF is saved.
 
@@ -26,8 +27,9 @@ are added as files and converted to PDF when the combined PDF is saved.
 ## 2. Features
 
 - Load, reorder, delete, and rotate individual PDF pages
-- Add Word, Excel, and PowerPoint documents as files and convert them when saving
-- Add image files as A4 PDF pages
+- Add Word, Excel, and PowerPoint documents as files and convert them through
+  Microsoft Office or LibreOffice when saving
+- Add PNG, JPEG, BMP, WebP, TIFF, HEIC, HEIF, and SVG images as A4 PDF pages
 - Insert A4 portrait blank pages
 - Add files with a file dialog, drag and drop, or Windows Explorer
 - Reorder, delete, and rotate PDF pages
@@ -49,7 +51,7 @@ are added as files and converted to PDF when the combined PDF is saved.
 
 Supported extensions:
 
-`.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp`
+`.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp / .webp / .tif / .tiff / .heic / .heif / .hif / .svg`
 
 ---
 
@@ -70,7 +72,9 @@ and English on other Windows language settings.
   upgraded in place.
 - This is an unsigned independently developed application. Windows SmartScreen
   may display a warning.
-- Microsoft Office is required only for Word, Excel, and PowerPoint conversion.
+- Microsoft Office or LibreOffice is required only for Word, Excel, and
+  PowerPoint conversion. Microsoft Office generally provides the best fidelity;
+  LibreOffice is useful when Microsoft Office is unavailable.
 
 ---
 
@@ -177,6 +181,8 @@ subfolder directly under a selected parent folder.
 - Unsupported files are skipped and recorded in a CSV log.
 - Existing PDFs are skipped by default, unless overwrite is enabled.
 - The CSV log is written to the output folder using UTF-8 with BOM for Excel.
+- The Office conversion engine can be set to Auto, Prefer Microsoft Office, or
+  Prefer LibreOffice.
 - Failed Office conversions are retried automatically up to two times with a
   one-second delay.
 
@@ -241,7 +247,8 @@ be written, and `9` for an unexpected error.
 
 ### An Office file cannot be converted
 
-- Verify that the corresponding Microsoft Office application is installed.
+- Verify that Microsoft Office or LibreOffice is available.
+- Check whether **Settings > Office Conversion Engine** matches the environment.
 - Close the document in other applications and try again.
 - Password-protected or damaged documents may not be convertible.
 
