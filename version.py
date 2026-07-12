@@ -1,2 +1,2 @@
 APP_NAME = "Office PDF Binder"
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.4.0"

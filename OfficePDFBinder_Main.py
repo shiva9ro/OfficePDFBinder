@@ -2,6 +2,9 @@ import argparse
 import configparser
 import copy
 import csv
+import ctypes
+import ctypes.wintypes
+import io
 import os
 import re
 import shutil
@@ -14,6 +17,7 @@ from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 import fitz
+import pi_heif
 from PIL import Image, ImageDraw, ImageFont
 from PySide6.QtCore import (
     QCoreApplication,
@@ -33,6 +37,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QAction,
+    QActionGroup,
     QColor,
     QDesktopServices,
     QDrag,
@@ -72,8 +77,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QStatusBar,
+    QStyle,
     QToolBar,
     QTreeWidget,
     QTreeWidgetItem,
@@ -83,6 +90,14 @@ from PySide6.QtWidgets import (
 
 from i18n import current_language, install_app_translator, translate
 from version import APP_NAME, APP_VERSION
+
+if sys.platform == "win32":
+    try:
+        import winreg
+    except ImportError:
+        winreg = None
+else:
+    winreg = None
 
 # --- Optional libraries ---
 try:
@@ -102,6 +117,7 @@ if sys.platform == "win32":
 else:
     win32com = None
 
+pi_heif.register_heif_opener()
 _STARTUP_TIME = time.perf_counter()
 INITIAL_WINDOW_X = 100
 INITIAL_WINDOW_Y = 100
@@ -143,19 +159,372 @@ def _create_office_temp_pdf_path(office_path):
     return path
 
 
+def _is_office_item_type(item_type):
+    return item_type in ("word", "excel", "powerpoint")
+
+
+def _office_app_name_from_type(office_type):
+    if office_type == "excel":
+        return "Excel"
+    if office_type == "powerpoint":
+        return "PowerPoint"
+    return "Word"
+
+
+def _normalize_office_converter(value):
+    if value in OFFICE_CONVERTER_CHOICES:
+        return value
+    return OFFICE_CONVERTER_AUTO
+
+
+def _classify_default_app_name(name):
+    normalized = (name or "").lower()
+    if "libreoffice" in normalized or "soffice" in normalized:
+        return OFFICE_CONVERTER_LIBREOFFICE
+    microsoft_markers = (
+        "microsoft office",
+        "microsoft word",
+        "microsoft excel",
+        "microsoft powerpoint",
+        "winword",
+        "excel",
+        "powerpnt",
+    )
+    if any(marker in normalized for marker in microsoft_markers):
+        return OFFICE_CONVERTER_MICROSOFT
+    return None
+
+
+def _query_registry_default_app_for_extension(ext):
+    if sys.platform != "win32" or winreg is None:
+        return None
+    try:
+        user_choice = rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\UserChoice"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, user_choice) as key:
+            prog_id, _ = winreg.QueryValueEx(key, "ProgId")
+            if prog_id:
+                return str(prog_id)
+    except OSError:
+        pass
+    try:
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, ext) as key:
+            prog_id, _ = winreg.QueryValueEx(key, "")
+            if prog_id:
+                return str(prog_id)
+    except OSError:
+        return None
+    return None
+
+
+def _default_app_preference_for_paths(paths):
+    preferences = set()
+    for path in paths:
+        ext = os.path.splitext(path)[1].lower()
+        preference = _classify_default_app_name(
+            _query_registry_default_app_for_extension(ext)
+        )
+        if preference:
+            preferences.add(preference)
+    if len(preferences) == 1:
+        return next(iter(preferences))
+    if len(preferences) > 1:
+        return "mixed"
+    return None
+
+
+def _libreoffice_profile_uri(profile_dir):
+    return Path(profile_dir).resolve().as_uri()
+
+
+def _open_pdf_after_unlock(path, timeout_seconds=30.0):
+    """PDFがロック解除されるまで待ってPyMuPDFで開く。呼び出し側がcloseする。"""
+    deadline = time.monotonic() + timeout_seconds
+    last_error = None
+    locking_processes = []
+    while True:
+        try:
+            return fitz.open(path)
+        except Exception as e:
+            last_error = e
+            locking_processes = _get_file_locking_processes(path)
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.2)
+    detail = str(last_error) if last_error else "PDF output is not ready"
+    if locking_processes:
+        detail += " / ロック中のプロセス: " + ", ".join(locking_processes)
+    raise RuntimeError(detail)
+
+
+def _subprocess_run_capture(arguments, timeout):
+    kwargs = {
+        "shell": False,
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "errors": "replace",
+        "timeout": timeout,
+    }
+    if sys.platform == "win32":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.run(arguments, **kwargs)
+
+
+def _list_soffice_process_ids():
+    if sys.platform != "win32":
+        return set()
+    try:
+        completed = _subprocess_run_capture(
+            ["tasklist", "/FO", "CSV", "/NH"],
+            timeout=10,
+        )
+    except Exception:
+        return set()
+    process_ids = set()
+    for line in completed.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        fields = next(csv.reader([line]), [])
+        if len(fields) < 2:
+            continue
+        image_name = fields[0].lower()
+        if image_name in {"soffice.exe", "soffice.com", "soffice.bin"}:
+            try:
+                process_ids.add(int(fields[1]))
+            except ValueError:
+                pass
+    return process_ids
+
+
+def _wait_for_new_soffice_processes(before_process_ids, timeout_seconds=30.0):
+    if sys.platform != "win32":
+        return
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        current = _list_soffice_process_ids()
+        if not (current - before_process_ids):
+            return
+        time.sleep(0.2)
+
+
+def _get_file_locking_processes(path):
+    if sys.platform != "win32":
+        return []
+
+    ERROR_MORE_DATA = 234
+    CCH_RM_MAX_APP_NAME = 255
+    CCH_RM_MAX_SVC_NAME = 63
+
+    class RM_UNIQUE_PROCESS(ctypes.Structure):
+        _fields_ = [
+            ("dwProcessId", ctypes.wintypes.DWORD),
+            ("ProcessStartTime", ctypes.wintypes.FILETIME),
+        ]
+
+    class RM_PROCESS_INFO(ctypes.Structure):
+        _fields_ = [
+            ("Process", RM_UNIQUE_PROCESS),
+            ("strAppName", ctypes.wintypes.WCHAR * (CCH_RM_MAX_APP_NAME + 1)),
+            ("strServiceShortName", ctypes.wintypes.WCHAR * (CCH_RM_MAX_SVC_NAME + 1)),
+            ("ApplicationType", ctypes.wintypes.DWORD),
+            ("AppStatus", ctypes.wintypes.ULONG),
+            ("TSSessionId", ctypes.wintypes.DWORD),
+            ("bRestartable", ctypes.wintypes.BOOL),
+        ]
+
+    try:
+        restart_manager = ctypes.WinDLL("rstrtmgr")
+    except Exception:
+        return []
+
+    session_handle = ctypes.wintypes.DWORD()
+    session_key = ctypes.create_unicode_buffer(64)
+    result = restart_manager.RmStartSession(
+        ctypes.byref(session_handle), 0, session_key
+    )
+    if result != 0:
+        return []
+
+    try:
+        resources = (ctypes.c_wchar_p * 1)(os.path.abspath(path))
+        result = restart_manager.RmRegisterResources(
+            session_handle,
+            1,
+            resources,
+            0,
+            None,
+            0,
+            None,
+        )
+        if result != 0:
+            return []
+
+        needed = ctypes.wintypes.UINT(0)
+        count = ctypes.wintypes.UINT(0)
+        reboot_reasons = ctypes.wintypes.DWORD(0)
+        result = restart_manager.RmGetList(
+            session_handle,
+            ctypes.byref(needed),
+            ctypes.byref(count),
+            None,
+            ctypes.byref(reboot_reasons),
+        )
+        if result == 0:
+            return []
+        if result != ERROR_MORE_DATA:
+            return []
+
+        process_info = (RM_PROCESS_INFO * needed.value)()
+        count = ctypes.wintypes.UINT(needed.value)
+        result = restart_manager.RmGetList(
+            session_handle,
+            ctypes.byref(needed),
+            ctypes.byref(count),
+            process_info,
+            ctypes.byref(reboot_reasons),
+        )
+        if result != 0:
+            return []
+
+        locking_processes = []
+        for index in range(count.value):
+            info = process_info[index]
+            process_id = info.Process.dwProcessId
+            app_name = info.strAppName or "Unknown"
+            locking_processes.append(f"{app_name} (PID: {process_id})")
+        return locking_processes
+    except Exception:
+        return []
+    finally:
+        try:
+            restart_manager.RmEndSession(session_handle)
+        except Exception:
+            pass
+
+
+def _truncate_detail(text, limit=1200):
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "..."
+
+
+def _standard_button_text(standard_button):
+    japanese_texts = {
+        QMessageBox.StandardButton.Yes: "はい",
+        QMessageBox.StandardButton.No: "いいえ",
+        QMessageBox.StandardButton.Ok: "OK",
+        QMessageBox.StandardButton.Cancel: "キャンセル",
+        QDialogButtonBox.StandardButton.Yes: "はい",
+        QDialogButtonBox.StandardButton.No: "いいえ",
+        QDialogButtonBox.StandardButton.Ok: "OK",
+        QDialogButtonBox.StandardButton.Cancel: "キャンセル",
+    }
+    english_texts = {
+        QMessageBox.StandardButton.Yes: "Yes",
+        QMessageBox.StandardButton.No: "No",
+        QMessageBox.StandardButton.Ok: "OK",
+        QMessageBox.StandardButton.Cancel: "Cancel",
+        QDialogButtonBox.StandardButton.Yes: "Yes",
+        QDialogButtonBox.StandardButton.No: "No",
+        QDialogButtonBox.StandardButton.Ok: "OK",
+        QDialogButtonBox.StandardButton.Cancel: "Cancel",
+    }
+    texts = japanese_texts if current_language() == "ja" else english_texts
+    return texts.get(standard_button)
+
+
+def _apply_dialog_button_texts(button_box):
+    for button in button_box.buttons():
+        standard_button = button_box.standardButton(button)
+        text = _standard_button_text(standard_button)
+        if text:
+            button.setText(text)
+
+
+def _show_standard_question(parent, title, message, buttons, default_button):
+    msg_box = QMessageBox(parent)
+    msg_box.setIcon(QMessageBox.Icon.Question)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.setStandardButtons(buttons)
+    msg_box.setDefaultButton(default_button)
+    for standard_button in (
+        QMessageBox.StandardButton.Yes,
+        QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.Ok,
+        QMessageBox.StandardButton.Cancel,
+    ):
+        button = msg_box.button(standard_button)
+        text = _standard_button_text(standard_button)
+        if button and text:
+            button.setText(text)
+    return msg_box.exec()
+
+
+def _cleanup_converted_pdf_path(path):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+        parent_dir = os.path.dirname(path) if path else ""
+        if (
+            parent_dir
+            and os.path.basename(parent_dir).startswith("opb_lo_out_")
+            and os.path.isdir(parent_dir)
+        ):
+            shutil.rmtree(parent_dir, ignore_errors=True)
+    except Exception as e:
+        print(f"一時ファイルの削除に失敗: {path}, エラー: {e}")
+
+
+def _get_image_frame_count(path):
+    with Image.open(path) as image:
+        image.verify()
+    with Image.open(path) as image:
+        return max(1, getattr(image, "n_frames", 1))
+
+
+def _image_frame_to_png_bytes(path, page_num=0):
+    with Image.open(path) as image:
+        frame_index = max(0, int(page_num or 0))
+        if frame_index >= getattr(image, "n_frames", 1):
+            raise ValueError(f"Image page out of range: {frame_index + 1}")
+        image.seek(frame_index)
+        frame = image.copy()
+    has_alpha = frame.mode in ("RGBA", "LA") or (
+        frame.mode == "P" and "transparency" in frame.info
+    )
+    frame = frame.convert("RGBA" if has_alpha else "RGB")
+    buffer = io.BytesIO()
+    frame.save(buffer, format="PNG")
+    return frame.width, frame.height, buffer.getvalue()
+
+
+def _open_svg_as_pdf_document(path):
+    with fitz.open(path) as svg_doc:
+        pdf_bytes = svg_doc.convert_to_pdf()
+    return fitz.open("pdf", pdf_bytes)
+
+
 # --- 定数定義 ---
 # ファイル拡張子
 SUPPORTED_WORD = (".docx", ".doc", ".docm")
 SUPPORTED_EXCEL = (".xlsx", ".xls", ".xlsm")
 SUPPORTED_POWERPOINT = (".pptx", ".ppt", ".pptm")
 SUPPORTED_PDF = (".pdf",)
-SUPPORTED_IMAGE = (".png", ".jpg", ".jpeg", ".bmp")
+SUPPORTED_IMAGE = (".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff")
+SUPPORTED_HEIF = (".heic", ".heif", ".hif")
+SUPPORTED_SVG = (".svg",)
 ALL_SUPPORTED_EXTENSIONS = (
     SUPPORTED_PDF
     + SUPPORTED_WORD
     + SUPPORTED_EXCEL
     + SUPPORTED_POWERPOINT
     + SUPPORTED_IMAGE
+    + SUPPORTED_HEIF
+    + SUPPORTED_SVG
 )
 
 # Officeファイル変換用の定数（Microsoft Office COM定数）
@@ -166,6 +535,19 @@ WORD_EXPORT_CREATE_NO_BOOKMARKS = 0  # wdExportCreateNoBookmarks
 EXCEL_EXPORT_PDF_TYPE = 0  # xlTypePDF
 EXCEL_PRINT_NO_COMMENTS = -4142  # xlPrintNoComments
 POWERPOINT_SAVE_AS_PDF_FORMAT = 32  # ppSaveAsPDF
+OFFICE_CONVERTER_AUTO = "auto"
+OFFICE_CONVERTER_MICROSOFT = "microsoft-office"
+OFFICE_CONVERTER_LIBREOFFICE = "libreoffice"
+OFFICE_CONVERTER_CHOICES = (
+    OFFICE_CONVERTER_AUTO,
+    OFFICE_CONVERTER_MICROSOFT,
+    OFFICE_CONVERTER_LIBREOFFICE,
+)
+LIBREOFFICE_TIMEOUT_SECONDS = 120
+LIBREOFFICE_STANDARD_PATHS = (
+    r"C:\Program Files\LibreOffice\program\soffice.com",
+    r"C:\Program Files\LibreOffice\program\soffice.exe",
+)
 
 # ディスク容量チェック
 MIN_FREE_SPACE_MB = 100
@@ -610,7 +992,7 @@ QToolButton {
     padding: 4px 6px;
     font-size: 10.5pt;
     font-family: 'Meiryo UI', 'Segoe UI';
-    min-width: 75px;
+    min-width: 68px;
 }
 QToolButton:hover { background-color: #5d6776; }
 QToolButton:pressed { background-color: #0984e3; }
@@ -727,6 +1109,312 @@ class AppWorker(QRunnable):
             elif hasattr(app, "Visible"):
                 app.Visible = False
         return app
+
+    def _find_libreoffice_executable(self, explicit_path=None):
+        candidates = []
+        if explicit_path:
+            candidates.append(explicit_path)
+
+        if sys.platform == "win32" and winreg is not None:
+            for subkey in (
+                r"SOFTWARE\LibreOffice\LibreOffice",
+                r"SOFTWARE\WOW6432Node\LibreOffice\LibreOffice",
+            ):
+                try:
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, subkey) as key:
+                        install_path, _ = winreg.QueryValueEx(key, "Path")
+                        candidates.extend(
+                            [
+                                os.path.join(install_path, "soffice.com"),
+                                os.path.join(install_path, "soffice.exe"),
+                                os.path.join(install_path, "program", "soffice.com"),
+                                os.path.join(install_path, "program", "soffice.exe"),
+                            ]
+                        )
+                except OSError:
+                    pass
+
+        candidates.extend(LIBREOFFICE_STANDARD_PATHS)
+        path_candidate = shutil.which("soffice.com") or shutil.which("soffice")
+        if path_candidate:
+            candidates.append(path_candidate)
+
+        seen = set()
+        for candidate in candidates:
+            if not candidate:
+                continue
+            normalized = os.path.abspath(
+                os.path.expandvars(os.path.expanduser(candidate))
+            )
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            if os.path.isfile(normalized):
+                return normalized
+        return None
+
+    def _get_libreoffice_version(self, executable):
+        try:
+            completed = _subprocess_run_capture(
+                [executable, "--version"],
+                timeout=15,
+            )
+        except Exception as e:
+            return None, str(e)
+        output = (completed.stdout or completed.stderr or "").strip()
+        if completed.returncode == 0 and output:
+            return output.splitlines()[0], ""
+        return None, output or f"終了コード: {completed.returncode}"
+
+    def _is_microsoft_office_available_for_types(self, office_types):
+        if sys.platform != "win32" or not win32com:
+            return False, translate(
+                "Worker", "pywin32またはWindows COMを利用できません"
+            )
+        created_apps = []
+        try:
+            for office_type in sorted(set(office_types)):
+                app_name = _office_app_name_from_type(office_type)
+                app = self._create_office_app(app_name)
+                created_apps.append((app, app_name))
+            return True, ""
+        except Exception as e:
+            return False, str(e)
+        finally:
+            for app, app_name in created_apps:
+                self._quit_owned_office_app(app, app_name)
+                self._forget_office_app(app)
+
+    def _resolve_office_converter(self, ordered_tasks, mode, libreoffice_path=None):
+        office_paths = [
+            path
+            for path, task in ordered_tasks
+            if _is_office_item_type(task.get("type"))
+        ]
+        if not office_paths:
+            return {
+                "engine": None,
+                "reason": translate(
+                    "Worker", "Office文書がないため変換エンジンを使用しません"
+                ),
+                "libreoffice_path": None,
+                "libreoffice_version": "",
+            }
+
+        mode = _normalize_office_converter(mode)
+        office_types = [
+            task.get("type")
+            for _path, task in ordered_tasks
+            if _is_office_item_type(task.get("type"))
+        ]
+        default_preference = _default_app_preference_for_paths(office_paths)
+
+        libreoffice_executable = self._find_libreoffice_executable(libreoffice_path)
+        libreoffice_version = ""
+        libreoffice_error = translate("Worker", "LibreOfficeが見つかりません")
+        if libreoffice_executable:
+            version, error = self._get_libreoffice_version(libreoffice_executable)
+            if version:
+                libreoffice_version = version
+                libreoffice_error = ""
+            else:
+                libreoffice_error = error or translate(
+                    "Worker", "LibreOfficeを起動できません"
+                )
+
+        microsoft_available = None
+        microsoft_error = ""
+
+        def ensure_microsoft_available():
+            nonlocal microsoft_available, microsoft_error
+            if microsoft_available is None:
+                microsoft_available, microsoft_error = (
+                    self._is_microsoft_office_available_for_types(office_types)
+                )
+            return microsoft_available
+
+        def libreoffice_available():
+            return bool(libreoffice_executable and libreoffice_version)
+
+        if mode == OFFICE_CONVERTER_MICROSOFT:
+            if ensure_microsoft_available():
+                return {
+                    "engine": OFFICE_CONVERTER_MICROSOFT,
+                    "reason": translate(
+                        "Worker", "Microsoft Officeを優先して使用します"
+                    ),
+                    "libreoffice_path": libreoffice_executable,
+                    "libreoffice_version": libreoffice_version,
+                }
+            if libreoffice_available():
+                return {
+                    "engine": OFFICE_CONVERTER_LIBREOFFICE,
+                    "reason": translate(
+                        "Worker",
+                        "Microsoft Officeを利用できないため、LibreOfficeを使用します",
+                    ),
+                    "libreoffice_path": libreoffice_executable,
+                    "libreoffice_version": libreoffice_version,
+                }
+
+        if mode == OFFICE_CONVERTER_LIBREOFFICE:
+            if libreoffice_available():
+                return {
+                    "engine": OFFICE_CONVERTER_LIBREOFFICE,
+                    "reason": translate("Worker", "LibreOfficeを優先して使用します"),
+                    "libreoffice_path": libreoffice_executable,
+                    "libreoffice_version": libreoffice_version,
+                }
+            if ensure_microsoft_available():
+                return {
+                    "engine": OFFICE_CONVERTER_MICROSOFT,
+                    "reason": translate(
+                        "Worker",
+                        "LibreOfficeを利用できないため、Microsoft Officeを使用します",
+                    ),
+                    "libreoffice_path": libreoffice_executable,
+                    "libreoffice_version": libreoffice_version,
+                }
+
+        if (
+            default_preference == OFFICE_CONVERTER_LIBREOFFICE
+            and libreoffice_available()
+        ):
+            return {
+                "engine": OFFICE_CONVERTER_LIBREOFFICE,
+                "reason": translate(
+                    "Worker", "Office文書の既定アプリがLibreOffice系列です"
+                ),
+                "libreoffice_path": libreoffice_executable,
+                "libreoffice_version": libreoffice_version,
+            }
+        if (
+            default_preference == OFFICE_CONVERTER_MICROSOFT
+            and ensure_microsoft_available()
+        ):
+            return {
+                "engine": OFFICE_CONVERTER_MICROSOFT,
+                "reason": translate(
+                    "Worker", "Office文書の既定アプリがMicrosoft Office系列です"
+                ),
+                "libreoffice_path": libreoffice_executable,
+                "libreoffice_version": libreoffice_version,
+            }
+        if ensure_microsoft_available():
+            return {
+                "engine": OFFICE_CONVERTER_MICROSOFT,
+                "reason": translate(
+                    "Worker",
+                    "既定アプリを優先できないため、利用可能なMicrosoft Officeを使用します",
+                ),
+                "libreoffice_path": libreoffice_executable,
+                "libreoffice_version": libreoffice_version,
+            }
+        if libreoffice_available():
+            return {
+                "engine": OFFICE_CONVERTER_LIBREOFFICE,
+                "reason": translate(
+                    "Worker",
+                    "Microsoft Officeを利用できないため、LibreOfficeを使用します",
+                ),
+                "libreoffice_path": libreoffice_executable,
+                "libreoffice_version": libreoffice_version,
+            }
+        raise RuntimeError(
+            translate(
+                "Worker",
+                "Microsoft OfficeとLibreOfficeのどちらも利用できません。Microsoft Office: {office_error} / LibreOffice: {libreoffice_error}",
+            ).format(
+                office_error=microsoft_error,
+                libreoffice_error=libreoffice_error,
+            )
+        )
+
+    def _convert_libreoffice_to_pdf(self, office_path, libreoffice_executable):
+        temp_parent = (
+            os.path.dirname(os.path.abspath(office_path))
+            if _is_portable_mode()
+            else None
+        )
+        out_dir = tempfile.mkdtemp(prefix="opb_lo_out_", dir=temp_parent)
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix="opb_lo_profile_", dir=temp_parent
+            ) as profile_dir:
+                before = {
+                    os.path.abspath(os.path.join(out_dir, name))
+                    for name in os.listdir(out_dir)
+                }
+                soffice_processes_before = _list_soffice_process_ids()
+                arguments = [
+                    libreoffice_executable,
+                    "--headless",
+                    "--nologo",
+                    "--nodefault",
+                    "--norestore",
+                    f"-env:UserInstallation={_libreoffice_profile_uri(profile_dir)}",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    out_dir,
+                    os.path.abspath(office_path),
+                ]
+                completed = _subprocess_run_capture(
+                    arguments,
+                    timeout=LIBREOFFICE_TIMEOUT_SECONDS,
+                )
+                _wait_for_new_soffice_processes(
+                    soffice_processes_before,
+                    timeout_seconds=30.0,
+                )
+                stdout = _truncate_detail(completed.stdout)
+                stderr = _truncate_detail(completed.stderr)
+                if completed.returncode != 0:
+                    details = stderr or stdout
+                    raise RuntimeError(
+                        translate(
+                            "Worker",
+                            "LibreOfficeが異常終了しました（終了コード: {code}）{details}",
+                        ).format(
+                            code=completed.returncode,
+                            details=f": {details}" if details else "",
+                        )
+                    )
+                after = {
+                    os.path.abspath(os.path.join(out_dir, name))
+                    for name in os.listdir(out_dir)
+                    if name.lower().endswith(".pdf")
+                }
+                new_pdfs = [path for path in after if path not in before]
+                expected = os.path.join(
+                    out_dir, f"{os.path.splitext(os.path.basename(office_path))[0]}.pdf"
+                )
+                candidates = []
+                if expected in after:
+                    candidates.append(expected)
+                candidates.extend(path for path in new_pdfs if path not in candidates)
+                for candidate in candidates:
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        return candidate
+                output_names = ", ".join(os.path.basename(path) for path in after)
+                details = " / ".join(
+                    part
+                    for part in (
+                        f"stdout: {stdout}" if stdout else "",
+                        f"stderr: {stderr}" if stderr else "",
+                        f"出力PDF: {output_names}" if output_names else "",
+                    )
+                    if part
+                )
+                raise RuntimeError(
+                    translate(
+                        "Worker",
+                        "LibreOfficeの出力PDFが作成されないか、破損しています{details}",
+                    ).format(details=f": {details}" if details else "")
+                )
+        except Exception:
+            shutil.rmtree(out_dir, ignore_errors=True)
+            raise
 
     @Slot()
     def run(self):
@@ -869,13 +1557,39 @@ class AppWorker(QRunnable):
                         "original_path": path,
                     }
                 )
-            elif file_ext in SUPPORTED_IMAGE:
+            elif file_ext in SUPPORTED_IMAGE + SUPPORTED_HEIF:
                 try:
-                    with Image.open(path) as image:
-                        image.verify()
-                    self.signals.item_ready.emit(
+                    frame_count = _get_image_frame_count(path)
+                    image_pages = [
                         {
                             "type": "image",
+                            "path": path,
+                            "rotation": 0,
+                            "original_path": path,
+                            "page_num": page_num,
+                        }
+                        for page_num in range(frame_count)
+                    ]
+                    if len(image_pages) == 1:
+                        self.signals.item_ready.emit(image_pages[0])
+                    else:
+                        self.signals.items_ready.emit(image_pages)
+                except Exception as e:
+                    self.signals.error.emit(
+                        translate("Worker", "画像ファイルを読み込めません"),
+                        translate(
+                            "Worker",
+                            "'{name}'を画像として読み込めませんでした。ファイルが破損しているか、未対応の画像形式である可能性があります。\n\nエラー詳細: {error}",
+                        ).format(name=os.path.basename(path), error=e),
+                    )
+            elif file_ext in SUPPORTED_SVG:
+                try:
+                    with _open_svg_as_pdf_document(path) as doc:
+                        if doc.page_count < 1:
+                            raise ValueError("SVG page is empty")
+                    self.signals.item_ready.emit(
+                        {
+                            "type": "svg",
                             "path": path,
                             "rotation": 0,
                             "original_path": path,
@@ -884,10 +1598,10 @@ class AppWorker(QRunnable):
                     )
                 except Exception as e:
                     self.signals.error.emit(
-                        translate("Worker", "画像ファイルを読み込めません"),
+                        translate("Worker", "SVGファイルを読み込めません"),
                         translate(
                             "Worker",
-                            "'{name}'を画像として読み込めませんでした。ファイルが破損しているか、未対応の画像形式である可能性があります。\n\nエラー詳細: {error}",
+                            "'{name}'をSVGとして読み込めませんでした。ファイルが破損しているか、未対応のSVGである可能性があります。\n\nエラー詳細: {error}",
                         ).format(name=os.path.basename(path), error=e),
                     )
         if self.is_running:
@@ -922,6 +1636,8 @@ class AppWorker(QRunnable):
         collected_errors=None,
         office_retry_count=0,
         office_retry_delay_seconds=1.0,
+        office_converter=OFFICE_CONVERTER_AUTO,
+        libreoffice_path=None,
     ):
         def report_error(title, message):
             if collected_errors is not None:
@@ -979,6 +1695,7 @@ class AppWorker(QRunnable):
         temp_files_to_clean = []
         failed_office_conversions = []
         retried_office_conversions = []
+        office_converter_info = None
         try:
             # --- ステップ1: しおり情報を準備 ---
             pending_toc_entries = []
@@ -1031,6 +1748,10 @@ class AppWorker(QRunnable):
                 elif item_type == "blank":
                     current_task["pages_to_add"].append(0)
                 elif item_type == "image":
+                    page_num = item.get("page_num", 0)
+                    current_task["pages_to_add"].append(page_num)
+                    current_task["rotations"][page_num] = item.get("rotation", 0)
+                elif item_type == "svg":
                     current_task["pages_to_add"].append(0)
                     current_task["rotations"][0] = item.get("rotation", 0)
 
@@ -1042,27 +1763,111 @@ class AppWorker(QRunnable):
             office_apps = {}  # タイプごとのアプリケーションインスタンス
             office_conversion_started = False
             try:
+                try:
+                    office_converter_info = self._resolve_office_converter(
+                        ordered_tasks,
+                        office_converter,
+                        libreoffice_path=libreoffice_path,
+                    )
+                except RuntimeError as e:
+                    report_error(
+                        translate("Worker", "Office変換エンジンを利用できません"),
+                        str(e),
+                    )
+                    return
+                selected_engine = office_converter_info.get("engine")
+                if selected_engine:
+                    _debug_log(
+                        "[OFFICE CONVERTER] "
+                        f"mode={office_converter}, engine={selected_engine}, "
+                        f"reason={office_converter_info.get('reason')}, "
+                        f"libreoffice={office_converter_info.get('libreoffice_path') or ''}, "
+                        f"version={office_converter_info.get('libreoffice_version') or ''}"
+                    )
                 for path, task in ordered_tasks:
-                    if task["type"] not in ("word", "excel", "powerpoint"):
+                    if not _is_office_item_type(task["type"]):
                         continue
 
                     office_type = task["type"]
-                    app_name = office_type.capitalize()
-                    if office_type == "excel":
-                        app_name = "Excel"
-                    elif office_type == "powerpoint":
-                        app_name = "PowerPoint"
+                    app_name = _office_app_name_from_type(office_type)
 
-                    # アプリケーションインスタンスを取得または作成
-                    if office_type not in office_apps:
+                    if (
+                        selected_engine == OFFICE_CONVERTER_MICROSOFT
+                        and office_type not in office_apps
+                    ):
                         office_conversion_started = True
                         office_apps[office_type] = None
+                    elif selected_engine == OFFICE_CONVERTER_LIBREOFFICE:
+                        office_conversion_started = True
 
                     self.signals.non_cancellable_started.emit(
                         translate("Worker", "{app}ファイルを変換中...").format(
                             app=app_name
                         )
                     )
+                    max_attempts = 1 + max(0, int(office_retry_count))
+                    temp_pdf = None
+
+                    if selected_engine == OFFICE_CONVERTER_LIBREOFFICE:
+                        if suppress_office_markup:
+                            _debug_log(
+                                "[OFFICE CONVERTER WARNING] "
+                                "LibreOffice変換ではコメント・変更履歴の抑制設定を適用できません。"
+                            )
+                        last_error = ""
+                        for attempt in range(1, max_attempts + 1):
+                            try:
+                                temp_pdf = self._convert_libreoffice_to_pdf(
+                                    path,
+                                    office_converter_info["libreoffice_path"],
+                                )
+                            except subprocess.TimeoutExpired:
+                                temp_pdf = None
+                                last_error = translate(
+                                    "Worker",
+                                    "LibreOffice変換がタイムアウトしました（{seconds}秒）",
+                                ).format(seconds=LIBREOFFICE_TIMEOUT_SECONDS)
+                                _debug_log(
+                                    "[LIBREOFFICE ERROR] "
+                                    f"{os.path.basename(path)} timeout"
+                                )
+                            except Exception as e:
+                                temp_pdf = None
+                                last_error = str(e)
+                                _debug_log(
+                                    "[LIBREOFFICE ERROR] "
+                                    f"{os.path.basename(path)}: {e}"
+                                )
+                            if temp_pdf:
+                                if attempt > 1:
+                                    retried_office_conversions.append(
+                                        ("LibreOffice", os.path.basename(path), attempt)
+                                    )
+                                temp_files_to_clean.append(temp_pdf)
+                                task["converted_pdf_path"] = temp_pdf
+                                break
+                            if attempt >= max_attempts:
+                                failed_office_conversions.append(
+                                    (
+                                        "LibreOffice",
+                                        os.path.basename(path),
+                                        _truncate_detail(last_error),
+                                    )
+                                )
+                                break
+                            self.signals.non_cancellable_started.emit(
+                                translate(
+                                    "Worker",
+                                    "{app}ファイルを再試行中 ({attempt}/{total})...",
+                                ).format(
+                                    app="LibreOffice",
+                                    attempt=attempt + 1,
+                                    total=max_attempts,
+                                )
+                            )
+                            time.sleep(max(0.0, office_retry_delay_seconds))
+                        continue
+
                     app_instance = office_apps[office_type]
 
                     converter = None
@@ -1074,7 +1879,6 @@ class AppWorker(QRunnable):
                         converter = self._convert_powerpoint_to_pdf
 
                     if converter:
-                        max_attempts = 1 + max(0, int(office_retry_count))
                         for attempt in range(1, max_attempts + 1):
                             temp_pdf, app_instance = converter(
                                 path,
@@ -1179,21 +1983,31 @@ class AppWorker(QRunnable):
                     continue
 
                 if task["type"] == "image":
-                    file_bookmarks = bookmark_map.get(path, [])
-                    for bm in file_bookmarks:
-                        pending_toc_entries.append(
-                            {
-                                "title": bm.get("title", translate("Worker", "無題")),
-                                "page_index": page_offset_for_bookmark,
-                            }
-                        )
-
                     try:
-                        with Image.open(path) as image:
-                            image_width, image_height = image.size
-                        if image_width <= 0 or image_height <= 0:
-                            raise ValueError("Invalid image size")
-                        for _ in task["pages_to_add"] or [0]:
+                        image_pages = task["pages_to_add"] or [0]
+                        file_bookmarks = bookmark_map.get(path, [])
+                        for bm in file_bookmarks:
+                            page_num = bm.get("page_num", 0)
+                            try:
+                                relative_index = image_pages.index(page_num)
+                            except ValueError:
+                                relative_index = 0
+                            pending_toc_entries.append(
+                                {
+                                    "title": bm.get(
+                                        "title", translate("Worker", "無題")
+                                    ),
+                                    "page_index": page_offset_for_bookmark
+                                    + relative_index,
+                                }
+                            )
+
+                        for page_num in image_pages:
+                            image_width, image_height, image_stream = (
+                                _image_frame_to_png_bytes(path, page_num)
+                            )
+                            if image_width <= 0 or image_height <= 0:
+                                raise ValueError("Invalid image size")
                             if image_width > image_height:
                                 page_width = BLANK_PAGE_HEIGHT
                                 page_height = BLANK_PAGE_WIDTH
@@ -1227,8 +2041,8 @@ class AppWorker(QRunnable):
                                 page_rect.x0 + (page_rect.width + draw_width) / 2,
                                 page_rect.y0 + (page_rect.height + draw_height) / 2,
                             )
-                            page.insert_image(target_rect, filename=path)
-                            rotation = task["rotations"].get(0, 0)
+                            page.insert_image(target_rect, stream=image_stream)
+                            rotation = task["rotations"].get(page_num, 0)
                             if rotation:
                                 page.set_rotation(rotation)
                     except Exception as e:
@@ -1252,7 +2066,12 @@ class AppWorker(QRunnable):
                 else:
                     source_path = path
 
-                source_doc = fitz.open(source_path)
+                if task["type"] in ("word", "excel", "powerpoint"):
+                    source_doc = _open_pdf_after_unlock(source_path)
+                elif task["type"] == "svg":
+                    source_doc = _open_svg_as_pdf_document(source_path)
+                else:
+                    source_doc = fitz.open(source_path)
 
                 pages_to_insert = task["pages_to_add"] or list(
                     range(source_doc.page_count)
@@ -1475,12 +2294,32 @@ class AppWorker(QRunnable):
                         95, translate("Worker", "PDFを最適化して保存中...")
                     )
                 if final_doc.page_count == 0:
+                    detail_message = ""
+                    if failed_office_conversions:
+                        skipped_lines = []
+                        for failed in failed_office_conversions:
+                            app_name = failed[0]
+                            file_name = failed[1]
+                            detail = failed[2] if len(failed) >= 3 else ""
+                            line = translate("Worker", "・{file}（{app}）").format(
+                                file=file_name, app=app_name
+                            )
+                            if detail:
+                                line += translate(
+                                    "Worker", "\n  理由: {detail}"
+                                ).format(detail=detail)
+                            skipped_lines.append(line)
+                        detail_message = translate(
+                            "Worker",
+                            "\n\n変換に失敗したOfficeファイル:\n{files}",
+                        ).format(files="\n".join(skipped_lines))
                     report_error(
                         translate("Worker", "保存できるページがありません"),
                         translate(
                             "Worker",
-                            "PDFに保存できるページがありません。Officeファイルを含む場合は、Microsoft Officeが正しくインストールされ、対象ファイルを開けることを確認してください。",
-                        ),
+                            "PDFに保存できるページがありません。Officeファイルを含む場合は、使用するOffice変換エンジンが利用できることと、対象ファイルを開けることを確認してください。",
+                        )
+                        + detail_message,
                     )
                     return
                 final_doc.save(output_path, garbage=4, deflate=True, clean=True)
@@ -1507,15 +2346,23 @@ class AppWorker(QRunnable):
                     path=output_path
                 )
                 if failed_office_conversions:
-                    skipped_files = "\n".join(
-                        translate("Worker", "・{file}（{app}）").format(
+                    skipped_lines = []
+                    for failed in failed_office_conversions:
+                        app_name = failed[0]
+                        file_name = failed[1]
+                        detail = failed[2] if len(failed) >= 3 else ""
+                        line = translate("Worker", "・{file}（{app}）").format(
                             file=file_name, app=app_name
                         )
-                        for app_name, file_name in failed_office_conversions
-                    )
+                        if detail:
+                            line += translate("Worker", "\n  理由: {detail}").format(
+                                detail=detail
+                            )
+                        skipped_lines.append(line)
+                    skipped_files = "\n".join(skipped_lines)
                     message += translate(
                         "Worker",
-                        "\n\n次のOfficeファイルは変換に失敗したため除外しました:\n{files}\n\nMicrosoft Officeがインストールされ、対象ファイルを開けることを確認してください。",
+                        "\n\n次のOfficeファイルは変換に失敗したため除外しました:\n{files}\n\n使用するOffice変換エンジンが利用できることと、対象ファイルを開けることを確認してください。",
                     ).format(files=skipped_files)
                 if emit_completion:
                     self.signals.finished.emit(
@@ -1527,17 +2374,14 @@ class AppWorker(QRunnable):
                     "saved": True,
                     "failed_office_conversions": failed_office_conversions,
                     "retried_office_conversions": retried_office_conversions,
+                    "office_converter": office_converter_info,
                     "message": message,
                 }
 
         finally:
             final_doc.close()
             for temp_f in temp_files_to_clean:
-                try:
-                    if os.path.exists(temp_f):
-                        os.remove(temp_f)
-                except Exception as e:
-                    print(f"一時ファイルの削除に失敗: {temp_f}, エラー: {e}")
+                _cleanup_converted_pdf_path(temp_f)
 
     @staticmethod
     def _item_type_from_extension(file_path):
@@ -1550,8 +2394,10 @@ class AppWorker(QRunnable):
             return "excel"
         if ext in SUPPORTED_POWERPOINT:
             return "powerpoint"
-        if ext in SUPPORTED_IMAGE:
+        if ext in SUPPORTED_IMAGE + SUPPORTED_HEIF:
             return "image"
+        if ext in SUPPORTED_SVG:
+            return "svg"
         return None
 
     def _build_items_data_from_file_paths(self, file_paths):
@@ -1580,11 +2426,24 @@ class AppWorker(QRunnable):
                                 }
                             )
                 elif item_type == "image":
-                    with Image.open(path) as image:
-                        image.verify()
+                    frame_count = _get_image_frame_count(path)
+                    for page_num in range(frame_count):
+                        items_data.append(
+                            {
+                                "type": "image",
+                                "path": path,
+                                "rotation": 0,
+                                "original_path": path,
+                                "page_num": page_num,
+                            }
+                        )
+                elif item_type == "svg":
+                    with _open_svg_as_pdf_document(path) as doc:
+                        if doc.page_count < 1:
+                            raise ValueError("SVG page is empty")
                     items_data.append(
                         {
-                            "type": "image",
+                            "type": "svg",
                             "path": path,
                             "rotation": 0,
                             "original_path": path,
@@ -1669,6 +2528,8 @@ class AppWorker(QRunnable):
         remove_pdf_annotations=False,
         disable_image_upscaling=False,
         suppress_office_markup=False,
+        office_converter=OFFICE_CONVERTER_AUTO,
+        libreoffice_path=None,
     ):
         input_root = Path(input_root)
         output_root = Path(output_root)
@@ -1846,6 +2707,8 @@ class AppWorker(QRunnable):
                     collected_errors=merge_errors,
                     office_retry_count=2,
                     office_retry_delay_seconds=1.0,
+                    office_converter=office_converter,
+                    libreoffice_path=libreoffice_path,
                 )
 
                 if not merge_result or not save_path.exists():
@@ -1872,6 +2735,7 @@ class AppWorker(QRunnable):
                     os.replace(temp_output, output_pdf)
                 failed_office = merge_result.get("failed_office_conversions", [])
                 retried_office = merge_result.get("retried_office_conversions", [])
+                converter_info = merge_result.get("office_converter") or {}
                 if failed_office:
                     warning_messages.append(
                         translate(
@@ -1888,6 +2752,16 @@ class AppWorker(QRunnable):
                         translate(
                             "Worker", "Office変換を再試行して成功: {count}件"
                         ).format(count=len(retried_office))
+                    )
+                if converter_info.get("engine"):
+                    result_messages.append(
+                        translate(
+                            "Worker",
+                            "Office変換エンジン: {engine}（{reason}）",
+                        ).format(
+                            engine=converter_info.get("engine"),
+                            reason=converter_info.get("reason", ""),
+                        )
                     )
                 add_log(
                     subfolder,
@@ -2844,8 +3718,12 @@ class AppWorker(QRunnable):
 
                 # PDFから画像に変換
                 try:
-                    with fitz.open(source_path) as doc:
-                        if item_type == "pdf":
+                    if item_type == "svg":
+                        doc_context = _open_svg_as_pdf_document(source_path)
+                    else:
+                        doc_context = fitz.open(source_path)
+                    with doc_context as doc:
+                        if item_type in ("pdf", "svg"):
                             page_num = item.get("page_num", 0)
                             if page_num >= len(doc):
                                 continue
@@ -2864,7 +3742,7 @@ class AppWorker(QRunnable):
 
                         # ファイル名を生成
                         base_name = os.path.splitext(os.path.basename(original_path))[0]
-                        if item_type == "pdf":
+                        if item_type in ("pdf", "svg"):
                             page_suffix = f"_p{item.get('page_num', 0) + 1:03d}"
                         else:
                             page_suffix = "_p001"
@@ -2901,11 +3779,7 @@ class AppWorker(QRunnable):
         finally:
             # 一時ファイルをクリーンアップ
             for temp_f in temp_files_to_clean:
-                try:
-                    if os.path.exists(temp_f):
-                        os.remove(temp_f)
-                except Exception as e:
-                    print(f"一時ファイルの削除に失敗: {temp_f}, エラー: {e}")
+                _cleanup_converted_pdf_path(temp_f)
 
         if self.is_running:
             self.signals.progress.emit(
@@ -2983,6 +3857,7 @@ class BatchMergeSubfoldersDialog(QDialog):
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        _apply_dialog_button_texts(button_box)
         button_box.button(QDialogButtonBox.StandardButton.Ok).setText(
             translate("BatchDialog", "開始")
         )
@@ -3233,6 +4108,7 @@ class HeaderFooterSettingsDialog(QDialog):
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        _apply_dialog_button_texts(button_box)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -3370,6 +4246,8 @@ class OfficePDFBinderApp(QMainWindow):
         self.remove_pdf_annotations = False
         self.disable_image_upscaling = False
         self.suppress_office_markup = False
+        self.office_converter = OFFICE_CONVERTER_AUTO
+        self.libreoffice_path = ""
         # ページ番号設定のデフォルト値
         self.page_number_settings = {
             "enabled": False,
@@ -3472,6 +4350,13 @@ class OfficePDFBinderApp(QMainWindow):
                 self.suppress_office_markup = self.config.getboolean(
                     "OfficeConversion", "suppress_markup", fallback=False
                 )
+                self.office_converter = _normalize_office_converter(
+                    self.config.get(
+                        "OfficeConversion",
+                        "converter",
+                        fallback=OFFICE_CONVERTER_AUTO,
+                    )
+                )
                 # ページ番号とヘッダー・フッターの設定は読み込まない
                 # （アプリ起動時に常にリセットされるため）
         except Exception as e:
@@ -3524,6 +4409,12 @@ class OfficePDFBinderApp(QMainWindow):
                 "suppress_markup",
                 str(self.suppress_office_markup),
             )
+            self.config.set(
+                "OfficeConversion",
+                "converter",
+                _normalize_office_converter(self.office_converter),
+            )
+            self.config.remove_option("OfficeConversion", "libreoffice_path")
             window_rect = (
                 self.normalGeometry() if self.isMaximized() else self.geometry()
             )
@@ -3643,8 +4534,9 @@ class OfficePDFBinderApp(QMainWindow):
         self.page_list_widget.setSelectionMode(QListWidget.ExtendedSelection)
         self.page_list_widget.setIconSize(self.THUMBNAIL_SIZE)
         page_item_style = """
-            QListWidget::item { background-color: #4a5260; border: none; border-radius: 5px; padding: 10px; margin: 0px; }
-            QListWidget::item:selected { background-color: #0984e3; border: 2px solid #74b9ff; color: white; }
+            QListWidget::item { background-color: #4a5260; border: none; outline: none; border-radius: 5px; padding: 10px; margin: 0px; }
+            QListWidget::item:selected { background-color: #0984e3; border: none; outline: none; color: white; }
+            QListWidget::item:focus { outline: none; }
             QListWidget::item:hover:!selected { background-color: #5d6776; }
         """
         self.page_list_widget.setStyleSheet(page_item_style)
@@ -3743,7 +4635,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self.delete_action = QAction(
             self.get_icon("fa5s.trash-alt", color="#e74c3c"),
-            translate("MainWindow", "選択項目を\n削除"),
+            translate("MainWindow", "選択\n削除"),
             self,
         )
         self.delete_action.setToolTip(
@@ -3755,7 +4647,7 @@ class OfficePDFBinderApp(QMainWindow):
         # --- ページ編集グループ ---
         self.rot_left_action = QAction(
             self.get_icon("fa5s.undo", color="#3498db"),
-            translate("MainWindow", "左へ90°\n回転"),
+            translate("MainWindow", "左90°\n回転"),
             self,
         )
         self.rot_left_action.setToolTip(
@@ -3768,7 +4660,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self.rot_right_action = QAction(
             self.get_icon("fa5s.redo", color="#3498db"),
-            translate("MainWindow", "右へ90°\n回転"),
+            translate("MainWindow", "右90°\n回転"),
             self,
         )
         self.rot_right_action.setToolTip(
@@ -3781,7 +4673,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self.move_to_top_action = QAction(
             self.get_icon("fa5s.angle-double-up", color="#f1c40f"),
-            translate("MainWindow", "一番上へ\n移動"),
+            translate("MainWindow", "一番上\n移動"),
             self,
         )
         self.move_to_top_action.setToolTip(
@@ -3811,7 +4703,7 @@ class OfficePDFBinderApp(QMainWindow):
 
         self.move_to_bottom_action = QAction(
             self.get_icon("fa5s.angle-double-down", color="#f1c40f"),
-            translate("MainWindow", "一番下へ\n移動"),
+            translate("MainWindow", "一番下\n移動"),
             self,
         )
         self.move_to_bottom_action.setToolTip(
@@ -3822,7 +4714,7 @@ class OfficePDFBinderApp(QMainWindow):
         # --- 保存とモード変更グループ ---
         self.merge_action = QAction(
             self.get_icon("fa5s.save", color="#3498db"),
-            translate("MainWindow", "PDFに結合して\n保存"),
+            translate("MainWindow", "結合\n保存"),
             self,
         )
         self.merge_action.setToolTip(
@@ -4020,6 +4912,28 @@ class OfficePDFBinderApp(QMainWindow):
             self._toggle_suppress_office_markup
         )
 
+        self.office_converter_action_group = QActionGroup(self)
+        self.office_converter_action_group.setExclusive(True)
+        self.office_converter_actions = {}
+        for label, value in (
+            (translate("MainWindow", "自動"), OFFICE_CONVERTER_AUTO),
+            (
+                translate("MainWindow", "Microsoft Officeを優先"),
+                OFFICE_CONVERTER_MICROSOFT,
+            ),
+            (
+                translate("MainWindow", "LibreOfficeを優先"),
+                OFFICE_CONVERTER_LIBREOFFICE,
+            ),
+        ):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(value)
+            action.setChecked(self.office_converter == value)
+            action.triggered.connect(self._select_office_converter)
+            self.office_converter_action_group.addAction(action)
+            self.office_converter_actions[value] = action
+
         # ヘッダー・フッター設定
         self.header_footer_settings_action = QAction(
             translate("MainWindow", "ヘッダーとフッター(&H)..."), self
@@ -4045,6 +4959,7 @@ class OfficePDFBinderApp(QMainWindow):
 
     def create_toolbar(self):
         toolbar = QToolBar(translate("MainWindow", "メインツールバー"))
+        self.main_toolbar = toolbar
         toolbar.setIconSize(QSize(22, 22))
         toolbar.setMovable(False)
         toolbar.setFloatable(False)
@@ -4054,12 +4969,15 @@ class OfficePDFBinderApp(QMainWindow):
 
         self.addToolBar(toolbar)
 
-        # --- グループ1: ファイル操作 ---
+        # --- グループ1: 主要操作 ---
         toolbar.addAction(self.add_action)
-        toolbar.addAction(self.delete_action)
+        toolbar.addAction(self.merge_action)
         toolbar.addSeparator()
 
         # --- グループ2: ページ・ファイル編集 ---
+        toolbar.addAction(self.delete_action)
+        toolbar.addSeparator()
+
         # 2-1: 回転
         toolbar.addAction(self.rot_left_action)
         toolbar.addAction(self.rot_right_action)
@@ -4069,10 +4987,6 @@ class OfficePDFBinderApp(QMainWindow):
         toolbar.addAction(self.move_up_action)
         toolbar.addAction(self.move_down_action)
         toolbar.addAction(self.move_to_bottom_action)
-        toolbar.addSeparator()
-
-        # --- グループ3: 保存 ---
-        toolbar.addAction(self.merge_action)
 
     def create_menu_bar(self):
         """
@@ -4135,12 +5049,27 @@ class OfficePDFBinderApp(QMainWindow):
 
         # 設定メニュー
         settings_menu = menubar.addMenu(translate("MainWindow", "設定(&S)"))
+        self.settings_menu = settings_menu
         settings_menu.addAction(self.auto_bookmark_action)
         settings_menu.addAction(self.show_outline_on_open_action)
         settings_menu.addSeparator()
-        settings_menu.addAction(self.remove_pdf_annotations_action)
         settings_menu.addAction(self.disable_image_upscaling_action)
+        settings_menu.addSeparator()
+        settings_menu.addAction(self.remove_pdf_annotations_action)
         settings_menu.addAction(self.suppress_office_markup_action)
+        office_converter_menu = settings_menu.addMenu(
+            translate("MainWindow", "Office変換エンジン")
+        )
+        self.office_converter_menu = office_converter_menu
+        office_converter_menu.addAction(
+            self.office_converter_actions[OFFICE_CONVERTER_AUTO]
+        )
+        office_converter_menu.addAction(
+            self.office_converter_actions[OFFICE_CONVERTER_MICROSOFT]
+        )
+        office_converter_menu.addAction(
+            self.office_converter_actions[OFFICE_CONVERTER_LIBREOFFICE]
+        )
         settings_menu.addSeparator()
         settings_menu.addAction(self.header_footer_settings_action)
 
@@ -4224,7 +5153,7 @@ class OfficePDFBinderApp(QMainWindow):
                 msg += translate(
                     "MainWindow", "\n\n新しいファイルを{count}個追加します。"
                 ).format(count=len(new_paths))
-                reply = QMessageBox.question(
+                reply = _show_standard_question(
                     self,
                     translate("MainWindow", "重複ファイル"),
                     msg,
@@ -4244,7 +5173,7 @@ class OfficePDFBinderApp(QMainWindow):
     def _add_files(self):
         file_dialog_filter = translate(
             "MainWindow",
-            "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp);;すべてのファイル (*)",
+            "対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.heic *.heif *.hif *.svg);;すべてのファイル (*)",
         )
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -4923,6 +5852,9 @@ class OfficePDFBinderApp(QMainWindow):
         elif item_data["type"] == "image":
             try:
                 with Image.open(item_data["path"]) as image:
+                    page_num = item_data.get("page_num", 0)
+                    if page_num:
+                        image.seek(page_num)
                     image = image.convert("RGBA")
                     rotation = item_data.get("rotation", 0)
                     if rotation:
@@ -4944,6 +5876,26 @@ class OfficePDFBinderApp(QMainWindow):
                     )
             except Exception:
                 return self._create_dummy_thumbnail("Image\nError", "#e74c3c", size)
+        elif item_data["type"] == "svg":
+            try:
+                with _open_svg_as_pdf_document(item_data["path"]) as doc:
+                    page = doc[0]
+                    rotation = item_data.get("rotation", 0)
+                    if rotation:
+                        page.set_rotation(rotation)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5))
+                    img = QImage(
+                        pix.samples,
+                        pix.width,
+                        pix.height,
+                        pix.stride,
+                        QImage.Format_RGB888,
+                    )
+                    return QPixmap.fromImage(
+                        img.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    )
+            except Exception:
+                return self._create_dummy_thumbnail("SVG\nError", "#e74c3c", size)
         elif item_data["type"] == "blank":
             return self._create_file_type_thumbnail(
                 "", translate("MainWindow", "空白"), "#94A3B8", size, "document"
@@ -5215,9 +6167,11 @@ class OfficePDFBinderApp(QMainWindow):
             if item.data(Qt.UserRole)
         ]
         has_rotatable_page = any(
-            item_type in ("pdf", "image") for item_type in selected_types
+            item_type in ("pdf", "image", "svg") for item_type in selected_types
         )
-        has_exportable_pdf_image = "pdf" in selected_types
+        has_exportable_pdf_image = any(
+            item_type in ("pdf", "svg") for item_type in selected_types
+        )
         self.rot_left_action.setEnabled(has_rotatable_page)
         self.rot_right_action.setEnabled(has_rotatable_page)
         if hasattr(self, "export_selected_pdf_action"):
@@ -5263,7 +6217,7 @@ class OfficePDFBinderApp(QMainWindow):
         """新しいプロジェクトを開始（リストをクリア）"""
         if self.page_list_widget.count() == 0:
             return
-        reply = QMessageBox.question(
+        reply = _show_standard_question(
             self,
             translate("MainWindow", "新規作成"),
             translate("MainWindow", "現在の一覧をクリアして新しく開始しますか？"),
@@ -5290,12 +6244,14 @@ class OfficePDFBinderApp(QMainWindow):
         if not self.page_list_widget.selectedItems():
             return
         if (
-            QMessageBox.question(
+            _show_standard_question(
                 self,
                 translate("MainWindow", "削除の確認"),
                 translate("MainWindow", "選択した項目を{count}個削除しますか？").format(
                     count=len(self.page_list_widget.selectedItems())
                 ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
             == QMessageBox.StandardButton.Yes
         ):
@@ -5320,8 +6276,8 @@ class OfficePDFBinderApp(QMainWindow):
         changed = False
         for item in self.page_list_widget.selectedItems():
             data = item.data(Qt.UserRole)
-            # PDFページと画像ページを対象とする
-            if data["type"] in ("pdf", "image"):
+            # PDFページ、画像ページ、SVGページを対象とする
+            if data["type"] in ("pdf", "image", "svg"):
                 # 現在の回転角度に新しい角度を加算し、360で割った余りを新しい角度とする
                 # (例: 270 + 90 = 360 -> 0)
                 data["rotation"] = (data["rotation"] + angle) % 360
@@ -5558,9 +6514,7 @@ class OfficePDFBinderApp(QMainWindow):
         if hasattr(self, "remove_pdf_annotations_action"):
             self.remove_pdf_annotations_action.setChecked(self.remove_pdf_annotations)
         if hasattr(self, "disable_image_upscaling_action"):
-            self.disable_image_upscaling_action.setChecked(
-                self.disable_image_upscaling
-            )
+            self.disable_image_upscaling_action.setChecked(self.disable_image_upscaling)
         if hasattr(self, "suppress_office_markup_action"):
             self.suppress_office_markup_action.setChecked(self.suppress_office_markup)
         # ページ番号とヘッダー・フッターのチェックボックスの状態を更新
@@ -5957,6 +6911,8 @@ class OfficePDFBinderApp(QMainWindow):
             remove_pdf_annotations=self.remove_pdf_annotations,
             disable_image_upscaling=self.disable_image_upscaling,
             suppress_office_markup=self.suppress_office_markup,
+            office_converter=self.office_converter,
+            libreoffice_path=self.libreoffice_path,
             header_footer_settings=header_footer_settings,
         )
 
@@ -6077,6 +7033,8 @@ class OfficePDFBinderApp(QMainWindow):
             remove_pdf_annotations=self.remove_pdf_annotations,
             disable_image_upscaling=self.disable_image_upscaling,
             suppress_office_markup=self.suppress_office_markup,
+            office_converter=self.office_converter,
+            libreoffice_path=self.libreoffice_path,
             header_footer_settings=header_footer_settings,
         )
 
@@ -6210,6 +7168,8 @@ class OfficePDFBinderApp(QMainWindow):
             remove_pdf_annotations=self.remove_pdf_annotations,
             disable_image_upscaling=self.disable_image_upscaling,
             suppress_office_markup=self.suppress_office_markup,
+            office_converter=self.office_converter,
+            libreoffice_path=self.libreoffice_path,
         )
 
     def _export_selected_as_images(self):
@@ -6331,6 +7291,118 @@ class OfficePDFBinderApp(QMainWindow):
             # 安全に無視できるため、何もしない
             pass
 
+    def _show_copyable_message(
+        self,
+        title,
+        message,
+        icon=QMessageBox.Icon.Information,
+        buttons=QDialogButtonBox.StandardButton.Ok,
+        default_button=QDialogButtonBox.StandardButton.Ok,
+    ):
+        dialog, _, clicked_button, _ = self._build_copyable_message_dialog(
+            title,
+            message,
+            icon=icon,
+            buttons=buttons,
+            default_button=default_button,
+        )
+        dialog.exec()
+        return clicked_button["standard"]
+
+    def _build_copyable_message_dialog(
+        self,
+        title,
+        message,
+        icon=QMessageBox.Icon.Information,
+        buttons=QDialogButtonBox.StandardButton.Ok,
+        default_button=QDialogButtonBox.StandardButton.Ok,
+    ):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(14)
+
+        message_layout = QHBoxLayout()
+        message_layout.setSpacing(12)
+        icon_label = QLabel()
+        icon_pixmap = (
+            self.style()
+            .standardIcon(
+                {
+                    QMessageBox.Icon.Information: QStyle.StandardPixmap.SP_MessageBoxInformation,
+                    QMessageBox.Icon.Warning: QStyle.StandardPixmap.SP_MessageBoxWarning,
+                    QMessageBox.Icon.Critical: QStyle.StandardPixmap.SP_MessageBoxCritical,
+                    QMessageBox.Icon.Question: QStyle.StandardPixmap.SP_MessageBoxQuestion,
+                }.get(icon, QStyle.StandardPixmap.SP_MessageBoxInformation)
+            )
+            .pixmap(32, 32)
+        )
+        icon_label.setPixmap(icon_pixmap)
+        icon_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
+        message_layout.addWidget(icon_label)
+
+        message_label = QLabel(message, dialog)
+        message_label.setTextFormat(Qt.TextFormat.PlainText)
+        message_label.setWordWrap(True)
+        message_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        message_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+
+        if len(message) > 1200 or message.count("\n") > 18:
+            scroll_area = QScrollArea(dialog)
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setMinimumHeight(180)
+            scroll_area.setMaximumHeight(360)
+            scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+            scroll_area.setWidget(message_label)
+            message_layout.addWidget(scroll_area, 1)
+        else:
+            message_layout.addWidget(message_label, 1)
+        layout.addLayout(message_layout, 1)
+
+        button_layout = QHBoxLayout()
+        copy_button = QPushButton(translate("MainWindow", "コピー"))
+        copy_button.setAutoDefault(False)
+        copy_button.setDefault(False)
+        copy_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        copy_button.clicked.connect(
+            lambda: QApplication.clipboard().setText(message)
+        )
+        button_layout.addWidget(copy_button)
+        button_layout.addStretch()
+
+        button_box = QDialogButtonBox(buttons)
+        _apply_dialog_button_texts(button_box)
+        clicked_button = {"standard": default_button}
+        default_widget = None
+
+        for button in button_box.buttons():
+            button.setDefault(False)
+            button.setAutoDefault(False)
+            if button_box.standardButton(button) == default_button:
+                button.setAutoDefault(True)
+                button.setDefault(True)
+                default_widget = button
+
+        def on_clicked(button):
+            clicked_button["standard"] = button_box.standardButton(button)
+            dialog.accept()
+
+        button_box.clicked.connect(on_clicked)
+        button_layout.addWidget(button_box)
+        layout.addLayout(button_layout)
+        if default_widget is not None:
+            QTimer.singleShot(0, default_widget.setFocus)
+
+        return dialog, button_box, clicked_button, default_widget
+
     def on_worker_finished(self, task_name, title, message):
         _debug_log(
             f"[DEBUG] on_worker_finished: task_name={task_name}, "
@@ -6392,19 +7464,19 @@ class OfficePDFBinderApp(QMainWindow):
                 except Exception as e:
                     print(f"PDFファイルを開けませんでした: {e}")
 
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Icon.Information)
-            msg_box.setWindowTitle(title)
-            msg_box.setText(
+            reply = self._show_copyable_message(
+                title,
                 translate("MainWindow", "{message}\n\n一覧をクリアしますか？").format(
                     message=message
-                )
+                ),
+                icon=QMessageBox.Icon.Information,
+                buttons=(
+                    QDialogButtonBox.StandardButton.Yes
+                    | QDialogButtonBox.StandardButton.No
+                ),
+                default_button=QDialogButtonBox.StandardButton.No,
             )
-            msg_box.setStandardButtons(
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-            if msg_box.exec() == QMessageBox.StandardButton.Yes:
+            if reply == QDialogButtonBox.StandardButton.Yes:
                 self.page_list_widget.clear()
                 self.thumbnail_cache.clear()
                 self.bookmarks.clear()
@@ -6414,19 +7486,26 @@ class OfficePDFBinderApp(QMainWindow):
                 self._update_page_mode_actions_state()
                 self._record_history_change()
         elif task_name == "batch_merge_subfolders":
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Icon.Information)
-            msg_box.setWindowTitle(title)
-            msg_box.setText(message)
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-            msg_box.exec()
+            self._show_copyable_message(
+                title,
+                message,
+                icon=QMessageBox.Icon.Information,
+                buttons=QDialogButtonBox.StandardButton.Ok,
+                default_button=QDialogButtonBox.StandardButton.Ok,
+            )
 
     def on_worker_error(self, title, message):
         if self.progress_dialog:
             self.progress_dialog.close()
         self.progress_dialog = None
         self.current_worker = None
-        QMessageBox.critical(self, title, message)
+        self._show_copyable_message(
+            title,
+            message,
+            icon=QMessageBox.Icon.Critical,
+            buttons=QDialogButtonBox.StandardButton.Ok,
+            default_button=QDialogButtonBox.StandardButton.Ok,
+        )
         self.update_status_bar()
 
     def update_status_bar(self, force_page_mode=False):
@@ -6449,7 +7528,8 @@ class OfficePDFBinderApp(QMainWindow):
                 if data["type"] in ("pdf", "blank"):
                     counts["pdf"] += 1
                 elif data["original_path"] not in unique_files:
-                    counts[data["type"]] += 1
+                    status_type = "image" if data["type"] == "svg" else data["type"]
+                    counts[status_type] += 1
                     unique_files.add(data["original_path"])
 
             status_parts = [
@@ -6503,10 +7583,12 @@ class OfficePDFBinderApp(QMainWindow):
 
         if self.threadpool.activeThreadCount() > 0:
             if (
-                QMessageBox.question(
+                _show_standard_question(
                     self,
                     translate("MainWindow", "終了の確認"),
                     translate("MainWindow", "処理を実行中です。終了しますか？"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
                 )
                 == QMessageBox.StandardButton.Yes
             ):
@@ -6928,6 +8010,15 @@ class OfficePDFBinderApp(QMainWindow):
         """Office変換時にレビュー情報をPDFに出すかどうかを切り替え"""
         self.suppress_office_markup = checked
         self.suppress_office_markup_action.setChecked(checked)
+        self._save_settings()
+        self._record_history_change()
+
+    def _select_office_converter(self):
+        action = self.sender()
+        value = action.data() if action else OFFICE_CONVERTER_AUTO
+        self.office_converter = _normalize_office_converter(value)
+        for converter, converter_action in self.office_converter_actions.items():
+            converter_action.setChecked(converter == self.office_converter)
         self._save_settings()
         self._record_history_change()
 
@@ -7401,6 +8492,17 @@ def _create_cli_parser():
         help="suppress Word comments/tracked changes and Excel comments",
     )
     parser.add_argument(
+        "--office-converter",
+        choices=OFFICE_CONVERTER_CHOICES,
+        default=OFFICE_CONVERTER_AUTO,
+        help="Office to PDF conversion engine (default: auto)",
+    )
+    parser.add_argument(
+        "--libreoffice-path",
+        default="",
+        help="explicit path to soffice.com or soffice.exe",
+    )
+    parser.add_argument(
         "--disable-image-upscaling",
         action="store_true",
         help="do not enlarge small images beyond the 96 dpi reference size",
@@ -7425,6 +8527,7 @@ def run_cli_batch(argv=None):
     print("OfficePDFBinder CLI batch-subfolders")
     print(f"Input root: {args.input_root}")
     print(f"Output root: {args.output_root}")
+    print(f"Office converter: {args.office_converter}")
 
     com_initialized = False
     try:
@@ -7443,6 +8546,8 @@ def run_cli_batch(argv=None):
             remove_pdf_annotations=args.remove_pdf_annotations,
             disable_image_upscaling=args.disable_image_upscaling,
             suppress_office_markup=args.suppress_office_markup,
+            office_converter=args.office_converter,
+            libreoffice_path=args.libreoffice_path,
         )
     except BatchLogWriteError as e:
         print(str(e), file=sys.stderr)
@@ -7473,9 +8578,7 @@ def run_cli_batch(argv=None):
     print(f"Skipped: {counts['Skipped']}")
     print(f"Error: {counts['Error']}")
     print(f"Log: {result['log_path']}")
-    incomplete_count = (
-        counts["Warning"] + counts["Skipped"] + counts["Error"]
-    )
+    incomplete_count = counts["Warning"] + counts["Skipped"] + counts["Error"]
     return 1 if incomplete_count else 0
 
 

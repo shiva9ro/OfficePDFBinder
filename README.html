@@ -78,26 +78,28 @@
 <h1>Office PDF Binder</h1>
 <p>English | <a href="README.ja.html">日本語</a></p>
 <p>Office PDF Binder is a Windows desktop application that combines PDF, Word,
-Excel, and PowerPoint files into a single PDF. You can organize, delete, and
-rotate individual PDF pages before saving the result.</p>
+Excel, PowerPoint, and image files into a single PDF. You can organize, delete,
+and rotate individual PDF pages before saving the result.</p>
 <p><img alt="Office PDF Binder main window" src="docs/images/screenshot-main-en.png" /></p>
 <hr />
 <h2>1. Requirements</h2>
 <ul>
 <li>Windows 10 or Windows 11 (64-bit)</li>
-<li>Microsoft Office when converting Word, Excel, or PowerPoint files</li>
+<li>Microsoft Office or LibreOffice when converting Word, Excel, or PowerPoint files</li>
 <li>No separate Python installation is required for packaged releases</li>
 </ul>
-<p>Office files are converted through the locally installed Microsoft Office
-applications. Office PDF Binder does not upload documents to an online service.
+<p>Office files are converted through locally installed Microsoft Office or
+LibreOffice applications. Office PDF Binder does not upload documents to an
+online service.
 PDF files are loaded as individual pages. Word, Excel, and PowerPoint documents
 are added as files and converted to PDF when the combined PDF is saved.</p>
 <hr />
 <h2>2. Features</h2>
 <ul>
 <li>Load, reorder, delete, and rotate individual PDF pages</li>
-<li>Add Word, Excel, and PowerPoint documents as files and convert them when saving</li>
-<li>Add image files as A4 PDF pages</li>
+<li>Add Word, Excel, and PowerPoint documents as files and convert them through
+  Microsoft Office or LibreOffice when saving</li>
+<li>Add PNG, JPEG, BMP, WebP, TIFF, HEIC, HEIF, and SVG images as A4 PDF pages</li>
 <li>Insert A4 portrait blank pages</li>
 <li>Add files with a file dialog, drag and drop, or Windows Explorer</li>
 <li>Reorder, delete, and rotate PDF pages</li>
@@ -118,7 +120,7 @@ are added as files and converted to PDF when the combined PDF is saved.</p>
 <li>Undo and redo up to 15 changes</li>
 </ul>
 <p>Supported extensions:</p>
-<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp</code></p>
+<p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp / .webp / .tif / .tiff / .heic / .heif / .hif / .svg</code></p>
 <hr />
 <h2>3. Installation and Portable Version</h2>
 <p>Download the latest installer or portable ZIP from GitHub Releases.</p>
@@ -133,7 +135,9 @@ and English on other Windows language settings.</p>
   upgraded in place.</li>
 <li>This is an unsigned independently developed application. Windows SmartScreen
   may display a warning.</li>
-<li>Microsoft Office is required only for Word, Excel, and PowerPoint conversion.</li>
+<li>Microsoft Office or LibreOffice is required only for Word, Excel, and
+  PowerPoint conversion. Microsoft Office generally provides the best fidelity;
+  LibreOffice is useful when Microsoft Office is unavailable.</li>
 </ul>
 <hr />
 <h2>4. Basic Use</h2>
@@ -226,6 +230,8 @@ subfolder directly under a selected parent folder.</p>
 <li>Unsupported files are skipped and recorded in a CSV log.</li>
 <li>Existing PDFs are skipped by default, unless overwrite is enabled.</li>
 <li>The CSV log is written to the output folder using UTF-8 with BOM for Excel.</li>
+<li>The Office conversion engine can be set to Auto, Prefer Microsoft Office, or
+  Prefer LibreOffice.</li>
 <li>Failed Office conversions are retried automatically up to two times with a
   one-second delay.</li>
 </ul>
@@ -314,7 +320,8 @@ be written, and <code>9</code> for an unexpected error.</p>
 <h2>6. Troubleshooting</h2>
 <h3>An Office file cannot be converted</h3>
 <ul>
-<li>Verify that the corresponding Microsoft Office application is installed.</li>
+<li>Verify that Microsoft Office or LibreOffice is available.</li>
+<li>Check whether <strong>Settings &gt; Office Conversion Engine</strong> matches the environment.</li>
 <li>Close the document in other applications and try again.</li>
 <li>Password-protected or damaged documents may not be convertible.</li>
 </ul>

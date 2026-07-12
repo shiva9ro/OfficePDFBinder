@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-#define MyAppVersion "1.3.2"
+#define MyAppVersion "1.4.0"
 #endif
 
 [Setup]
@@ -75,16 +75,45 @@ Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.docx\shell\OfficePD
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.docx\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.doc\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.doc\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.docm\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.docm\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 ; Excelファイル
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xlsx\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xlsx\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xls\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xls\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xlsm\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.xlsm\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 ; PowerPointファイル
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.pptx\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.pptx\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.ppt\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.ppt\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.pptm\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.pptm\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+; 画像ファイル
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.png\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.png\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.jpg\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.jpg\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.jpeg\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.jpeg\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.bmp\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.bmp\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.webp\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.webp\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tif\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tif\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tiff\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tiff\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.heic\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.heic\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.heif\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.heif\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.hif\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.hif\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.svg\shell\OfficePDFBinder"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenWith}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.svg\shell\OfficePDFBinder\command"; ValueType: string; ValueName: ""; ValueData: """{app}\OfficePDFBinder_Main.exe"" ""%1"""; Flags: uninsdeletekey
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);

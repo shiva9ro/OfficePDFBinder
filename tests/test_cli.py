@@ -68,8 +68,52 @@ def test_cli_passes_all_options_to_existing_batch_worker(
         "remove_pdf_annotations": True,
         "disable_image_upscaling": True,
         "suppress_office_markup": True,
+        "office_converter": "auto",
+        "libreoffice_path": "",
     }
     assert "Success: 1" in capsys.readouterr().out
+
+
+def test_cli_passes_libreoffice_converter_options(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_batch(self, **kwargs):
+        captured.update(kwargs)
+        return {
+            "status": "completed",
+            "message": "",
+            "counts": {"Success": 1, "Warning": 0, "Skipped": 0, "Error": 0},
+            "log_path": str(tmp_path / "output" / "batch_log.csv"),
+            "input_root": kwargs["input_root"],
+            "output_root": kwargs["output_root"],
+        }
+
+    monkeypatch.setattr(
+        app_module.AppWorker,
+        "_run_batch_merge_subfolders",
+        fake_batch,
+    )
+
+    exit_code = app_module.run_cli_batch(
+        [
+            "--batch-subfolders",
+            "--input-root",
+            str(tmp_path / "input"),
+            "--output-root",
+            str(tmp_path / "output"),
+            "--office-converter",
+            "libreoffice",
+            "--libreoffice-path",
+            r"C:\Program Files\LibreOffice\program\soffice.com",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["office_converter"] == "libreoffice"
+    assert (
+        captured["libreoffice_path"]
+        == r"C:\Program Files\LibreOffice\program\soffice.com"
+    )
 
 
 def test_cli_creates_pdf_and_utf8_sig_log_for_general_subfolder_name(
