@@ -36,7 +36,7 @@ def test_main_window_default_ui_remains_japanese(qtbot, tmp_path, monkeypatch):
 
     assert window.windowTitle() == "Office PDF Binder"
     assert window.add_action.text() == "ファイル\n追加"
-    assert window.delete_action.text() == "選択項目を\n削除"
+    assert window.delete_action.text() == "選択\n削除"
     assert window.save_action.text() == "名前を付けて保存(&S)..."
     assert window.auto_bookmark_action.isChecked() is True
     assert Path(window.user_manual_path).name == "README.ja.html"

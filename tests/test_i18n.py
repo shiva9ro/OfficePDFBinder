@@ -120,7 +120,7 @@ def test_main_window_uses_english_catalog(qapp, qtbot, tmp_path, monkeypatch):
 
         assert window.add_action.text() == "Add\nFiles"
         assert window.delete_action.text() == "Delete\nSelected"
-        assert window.merge_action.text() == "Combine and\nSave PDF"
+        assert window.merge_action.text() == "Merge\nSave"
         assert window.bookmark_dock.windowTitle() == "Bookmarks"
         assert Path(window.user_manual_path).name == "README.html"
     finally:

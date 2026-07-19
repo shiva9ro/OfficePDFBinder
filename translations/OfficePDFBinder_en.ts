@@ -426,7 +426,7 @@ Save PDF</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="5174"/>
         <source>対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.heic *.heif *.hif *.svg);;すべてのファイル (*)</source>
-        <translation type="unfinished"></translation>
+        <translation>Supported files (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.heic *.heif *.hif *.svg);;All files (*)</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="5322"/>
@@ -657,7 +657,7 @@ Save PDF</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="5061"/>
         <source>Office変換エンジン</source>
-        <translation type="unfinished"></translation>
+        <translation>Office Conversion Engine</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="5107"/>
@@ -1002,7 +1002,7 @@ Save</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="7371"/>
         <source>コピー</source>
-        <translation type="unfinished"></translation>
+        <translation>Copy</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="7574"/>
@@ -1167,7 +1167,7 @@ Error details: {error}</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2318"/>
         <source>PDFに保存できるページがありません。Officeファイルを含む場合は、使用するOffice変換エンジンが利用できることと、対象ファイルを開けることを確認してください。</source>
-        <translation type="unfinished"></translation>
+        <translation>There are no pages to save as a PDF. If Office files were added, verify that the selected Office conversion engine is available and can open those files.</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2363"/>
@@ -1177,7 +1177,12 @@ Error details: {error}</translation>
 {files}
 
 使用するOffice変換エンジンが利用できることと、対象ファイルを開けることを確認してください。</source>
-        <translation type="unfinished"></translation>
+        <translation>
+
+The following Office files were excluded because conversion failed:
+{files}
+
+Verify that the selected Office conversion engine is available and can open those files.</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2465"/>
@@ -1275,7 +1280,7 @@ Creating PDF for {name}...</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2758"/>
         <source>Office変換エンジン: {engine}（{reason}）</source>
-        <translation type="unfinished"></translation>
+        <translation>Office conversion engine: {engine} ({reason})</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2798"/>
@@ -1317,85 +1322,87 @@ Log:
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1171"/>
         <source>pywin32またはWindows COMを利用できません</source>
-        <translation type="unfinished"></translation>
+        <translation>pywin32 or Windows COM is unavailable</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1197"/>
         <source>Office文書がないため変換エンジンを使用しません</source>
-        <translation type="unfinished"></translation>
+        <translation>No conversion engine is needed because there are no Office documents</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1214"/>
         <source>LibreOfficeが見つかりません</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice was not found</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1221"/>
         <source>LibreOfficeを起動できません</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice could not be started</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1285"/>
         <source>Office文書の既定アプリがLibreOffice系列です</source>
-        <translation type="unfinished"></translation>
+        <translation>The default app for Office documents is LibreOffice-based</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1297"/>
         <source>Office文書の既定アプリがMicrosoft Office系列です</source>
-        <translation type="unfinished"></translation>
+        <translation>The default app for Office documents is Microsoft Office-based</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1306"/>
         <source>既定アプリを優先できないため、利用可能なMicrosoft Officeを使用します</source>
-        <translation type="unfinished"></translation>
+        <translation>The default app could not be preferred, so available Microsoft Office will be used</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1252"/>
         <location filename="../OfficePDFBinder_Main.py" line="1316"/>
         <source>Microsoft Officeを利用できないため、LibreOfficeを使用します</source>
-        <translation type="unfinished"></translation>
+        <translation>Microsoft Office is unavailable, so LibreOffice will be used</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1243"/>
         <source>Microsoft Officeを優先して使用します</source>
-        <translation type="unfinished"></translation>
+        <translation>Microsoft Office will be preferred</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1264"/>
         <source>LibreOfficeを優先して使用します</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice will be preferred</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1271"/>
         <source>LibreOfficeを利用できないため、Microsoft Officeを使用します</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice is unavailable, so Microsoft Office will be used</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1324"/>
         <source>Microsoft OfficeとLibreOfficeのどちらも利用できません。Microsoft Office: {office_error} / LibreOffice: {libreoffice_error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Neither Microsoft Office nor LibreOffice is available. Microsoft Office: {office_error} / LibreOffice: {libreoffice_error}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1375"/>
         <source>LibreOfficeが異常終了しました（終了コード: {code}）{details}</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice exited unexpectedly (exit code: {code}){details}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1410"/>
         <source>LibreOfficeの出力PDFが作成されないか、破損しています{details}</source>
-        <translation type="unfinished"></translation>
+        <translation>The LibreOffice output PDF was not created or is damaged{details}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1601"/>
         <source>SVGファイルを読み込めません</source>
-        <translation type="unfinished"></translation>
+        <translation>Cannot Load SVG File</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1602"/>
         <source>&apos;{name}&apos;をSVGとして読み込めませんでした。ファイルが破損しているか、未対応のSVGである可能性があります。
 
 エラー詳細: {error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Could not load &apos;{name}&apos; as an SVG. The file may be damaged or use unsupported SVG features.
+
+Error details: {error}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1613"/>
@@ -1476,7 +1483,7 @@ Required: at least {required} MB</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1774"/>
         <source>Office変換エンジンを利用できません</source>
-        <translation type="unfinished"></translation>
+        <translation>Office Conversion Engine Unavailable</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1804"/>
@@ -1486,7 +1493,7 @@ Required: at least {required} MB</translation>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1826"/>
         <source>LibreOffice変換がタイムアウトしました（{seconds}秒）</source>
-        <translation type="unfinished"></translation>
+        <translation>LibreOffice conversion timed out after {seconds} seconds</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="1962"/>
@@ -1503,7 +1510,8 @@ Required: at least {required} MB</translation>
         <location filename="../OfficePDFBinder_Main.py" line="2358"/>
         <source>
   理由: {detail}</source>
-        <translation type="unfinished"></translation>
+        <translation>
+  Reason: {detail}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2312"/>
@@ -1511,7 +1519,10 @@ Required: at least {required} MB</translation>
 
 変換に失敗したOfficeファイル:
 {files}</source>
-        <translation type="unfinished"></translation>
+        <translation>
+
+Office files that failed to convert:
+{files}</translation>
     </message>
     <message>
         <location filename="../OfficePDFBinder_Main.py" line="2317"/>
