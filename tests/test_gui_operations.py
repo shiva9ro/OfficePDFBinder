@@ -212,8 +212,8 @@ def test_delete_selected_removes_orphan_bookmark(
     ]
     first.setSelected(True)
     monkeypatch.setattr(
-        QMessageBox,
-        "question",
+        app_module,
+        "_show_standard_question",
         lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
     )
 
@@ -295,8 +295,8 @@ def test_duplicate_check_returns_only_new_files(
     new_file = tmp_path / "new.pdf"
     add_raw_item(main_window, item_data(existing, 0))
     monkeypatch.setattr(
-        QMessageBox,
-        "question",
+        app_module,
+        "_show_standard_question",
         lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
     )
 
