@@ -8,6 +8,8 @@ PDF、Word、Excel、PowerPoint の資料をまとめて、提出用・共有用
 
 PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファイル単位で追加し、保存時にMicrosoft OfficeまたはLibreOfficeでPDFへ変換して結合します。
 
+Microsoft Officeで変換する場合、文書は読み取り専用で開き、マクロを強制的に無効化します。外部リンクは更新せず、ファイルに保存済みの内容を使用してPDF化し、元のOfficeファイルへ変更を保存しません。
+
 ![Office PDF Binder のメイン画面](docs/images/screenshot-main.png)
 
 ---
@@ -56,15 +58,15 @@ PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファ
 GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。
 
 ```text
-OfficePDFBinder_Setup_1.4.0.exe
-OfficePDFBinder_Portable_1.4.0.zip
+OfficePDFBinder_Setup_1.4.1.exe
+OfficePDFBinder_Portable_1.4.1.zip
 ```
 
 インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。
 
 ### インストール時の注意
 
-- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.0 をインストールしてください。
+- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.1 をインストールしてください。
 - 本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。
 - Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office または LibreOffice のどちらかが必要です。再現性は一般的にMicrosoft Officeの方が高く、LibreOfficeはMicrosoft Officeを利用できない環境で有効です。
 
@@ -259,7 +261,7 @@ GUI形式のEXEをPowerShellから確実に待機して終了コードを取得�
 
 確認済みの開発・テスト環境:
 
-- Python 3.13.11
+- Python 3.13
 - Visual Studio C++ Clang tools（`clang-cl`）
 
 主な依存関係:

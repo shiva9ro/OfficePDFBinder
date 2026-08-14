@@ -178,4 +178,15 @@ def test_build_support_files_are_organized_outside_project_root():
     assert all((project_root / path).is_file() for path in expected_files)
     assert not (project_root / "build_installer.ps1").exists()
     assert not (project_root / "setup_office_binder.iss").exists()
+    assert not (project_root / "tatus --short").exists()
     assert '".\\scripts\\build_installer.ps1"' in entrypoint
+
+
+def test_ci_checks_translation_catalog_is_current():
+    project_root = Path(__file__).parents[1]
+    workflow = (project_root / ".github" / "workflows" / "tests.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "pyside6-lupdate OfficePDFBinder_Main.py" in workflow
+    assert "git diff --exit-code -- translations/OfficePDFBinder_en.ts" in workflow

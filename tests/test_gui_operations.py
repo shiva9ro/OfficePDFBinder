@@ -454,10 +454,253 @@ def test_cancel_worker_marks_current_worker_and_updates_dialog(main_window):
     main_window.current_worker = DummyWorker()
     main_window.setup_progress_dialog("テスト")
 
+    assert main_window.progress_dialog.cancel_button.text() == "中止"
+
     main_window.cancel_worker()
 
     assert main_window.current_worker.is_running is False
     assert main_window.progress_dialog.labelText() == "処理を中止しています..."
+    assert main_window.progress_dialog.isVisible()
+    assert not main_window.progress_dialog.cancel_button.isVisible()
+
+    main_window._on_worker_run_completed(main_window.current_worker)
+
+    assert main_window.progress_dialog is None
+
+
+def test_office_conversion_keeps_stop_button_and_explains_deferred_stop(
+    main_window, qtbot
+):
+    class DummyWorker:
+        is_running = True
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+
+    main_window._on_non_cancellable_started("PowerPointファイルを変換中...")
+
+    assert progress_dialog.cancel_button.isVisible()
+    assert progress_dialog.cancel_button.text() == "中止"
+
+    qtbot.mouseClick(progress_dialog.cancel_button, Qt.MouseButton.LeftButton)
+
+    assert worker.is_running is False
+    assert progress_dialog.isVisible()
+    assert (
+        progress_dialog.labelText()
+        == "現在のOffice変換が終わり次第、中止します..."
+    )
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+
+
+def test_progress_dialog_close_requests_cancel_and_stays_visible(main_window):
+    class DummyWorker:
+        is_running = True
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+
+    progress_dialog.close()
+
+    assert worker.is_running is False
+    assert progress_dialog.isVisible()
+    assert progress_dialog.labelText() == "処理を中止しています..."
+    assert main_window.progress_dialog is progress_dialog
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+    assert not progress_dialog.isVisible()
+
+
+def test_progress_dialog_cancel_button_requests_cancel_and_stays_visible(
+    main_window, qtbot
+):
+    class DummyWorker:
+        is_running = True
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+
+    qtbot.mouseClick(progress_dialog.cancel_button, Qt.MouseButton.LeftButton)
+
+    assert worker.is_running is False
+    assert progress_dialog.isVisible()
+    assert progress_dialog.labelText() == "処理を中止しています..."
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+
+
+def test_progress_dialog_escape_requests_cancel_and_stays_visible(main_window):
+    class DummyWorker:
+        is_running = True
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+
+    progress_dialog.reject()
+
+    assert worker.is_running is False
+    assert progress_dialog.isVisible()
+    assert progress_dialog.labelText() == "処理を中止しています..."
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+
+
+def test_progress_dialog_does_not_auto_close_at_100_percent(main_window):
+    class DummyWorker:
+        is_running = True
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+
+    main_window.update_progress(100, "保存完了")
+
+    assert progress_dialog.isVisible()
+    assert main_window.progress_dialog is progress_dialog
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+
+
+def test_cancelled_worker_finished_signal_waits_for_run_completion(main_window):
+    class DummyWorker:
+        is_running = False
+
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    main_window.setup_progress_dialog("テスト")
+    progress_dialog = main_window.progress_dialog
+    progress_dialog.mark_cancel_pending()
+
+    main_window.on_worker_finished("cancelled", "中止", "処理を中止しました。")
+
+    assert progress_dialog.isVisible()
+    assert main_window.progress_dialog is progress_dialog
+    assert main_window.current_worker is worker
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.progress_dialog is None
+    assert main_window.current_worker is None
+
+
+def test_close_event_waits_for_running_worker(main_window, monkeypatch):
+    class DummyWorker:
+        is_running = True
+
+    class DummyThreadPool:
+        @staticmethod
+        def activeThreadCount():
+            return 1
+
+    class DummyEvent:
+        accepted = False
+        ignored = False
+
+        def accept(self):
+            self.accepted = True
+
+        def ignore(self):
+            self.ignored = True
+
+    scheduled = []
+    event = DummyEvent()
+    worker = DummyWorker()
+    main_window.current_worker = worker
+    monkeypatch.setattr(main_window, "threadpool", DummyThreadPool())
+    monkeypatch.setattr(main_window, "_save_settings", lambda: None)
+    monkeypatch.setattr(
+        app_module,
+        "_show_standard_question",
+        lambda *_args, **_kwargs: QMessageBox.StandardButton.Yes,
+    )
+    monkeypatch.setattr(
+        app_module.QTimer,
+        "singleShot",
+        lambda delay, callback: scheduled.append((delay, callback)),
+    )
+
+    main_window.closeEvent(event)
+
+    assert worker.is_running is False
+    assert main_window._close_requested is True
+    assert event.ignored is True
+    assert event.accepted is False
+    assert main_window.isEnabled() is False
+    assert scheduled[0][1] == main_window._finish_pending_close
+    main_window._close_requested = False
+    main_window._allow_close = True
+    main_window.setEnabled(True)
+
+
+def test_pending_close_finishes_only_after_threadpool_is_idle(
+    main_window, monkeypatch
+):
+    class DummyThreadPool:
+        active_count = 1
+
+        def activeThreadCount(self):
+            return self.active_count
+
+    threadpool = DummyThreadPool()
+    scheduled = []
+    close_calls = []
+    monkeypatch.setattr(main_window, "threadpool", threadpool)
+    main_window._close_requested = True
+    monkeypatch.setattr(
+        app_module.QTimer,
+        "singleShot",
+        lambda delay, callback: scheduled.append((delay, callback)),
+    )
+    monkeypatch.setattr(main_window, "close", lambda: close_calls.append(True))
+
+    main_window._finish_pending_close()
+
+    assert main_window._allow_close is False
+    assert close_calls == []
+    assert scheduled[0][0] == 50
+
+    threadpool.active_count = 0
+    scheduled.pop(0)[1]()
+
+    assert main_window._allow_close is True
+    assert close_calls == [True]
+    main_window._close_requested = False
+
+
+def test_worker_error_keeps_worker_reference_until_run_completes(
+    main_window, monkeypatch
+):
+    worker = object()
+    main_window.current_worker = worker
+    monkeypatch.setattr(main_window, "_show_copyable_message", lambda *_a, **_k: None)
+
+    main_window.on_worker_error("error", "message")
+
+    assert main_window.current_worker is worker
+
+    main_window._on_worker_run_completed(worker)
+
+    assert main_window.current_worker is None
 
 
 def test_action_states_follow_selection_boundaries(main_window, pdf_factory):

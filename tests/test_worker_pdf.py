@@ -719,6 +719,205 @@ def test_batch_merge_subfolders_uses_temp_replace_when_overwriting_existing_pdf(
     assert existing.read_bytes() != b"old"
 
 
+def test_merge_save_transaction_replaces_existing_pdf_after_generation(
+    pdf_factory, tmp_path, monkeypatch
+):
+    source = pdf_factory("source.pdf", ["NEW"])
+    output = tmp_path / "result.pdf"
+    output.write_bytes(b"old")
+    worker = AppWorker("merge_save")
+    finished = collect_signal(worker.signals.finished)
+    replace_calls = []
+    real_replace = os.replace
+
+    def record_replace(src, dst):
+        temp_path = Path(src)
+        with fitz.open(temp_path) as generated:
+            assert generated.page_count == 1
+        replace_calls.append((temp_path, Path(dst)))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", record_replace)
+
+    result = worker._run_merge_save_transaction(
+        [pdf_item(source, 0)],
+        str(output),
+    )
+
+    assert result["saved"] is True
+    assert result["output_path"] == str(output.resolve())
+    assert replace_calls[0][0].name.startswith(".result_")
+    assert replace_calls[0][0].name.endswith(".tmp.pdf")
+    assert replace_calls[0][1] == output
+    assert not replace_calls[0][0].exists()
+    with fitz.open(output) as generated:
+        assert generated.page_count == 1
+    assert str(output.resolve()) in finished[-1][2]
+
+
+def test_merge_save_transaction_preserves_existing_pdf_when_replace_fails(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "result.pdf"
+    output.write_bytes(b"old")
+    worker = AppWorker("merge_save")
+    finished = collect_signal(worker.signals.finished)
+
+    def fake_merge(_items_data, working_path, **_kwargs):
+        Path(working_path).write_bytes(b"new")
+        return {"saved": True, "message": "saved"}
+
+    def fail_replace(_src, _dst):
+        raise PermissionError("locked")
+
+    monkeypatch.setattr(worker, "_run_merge_save", fake_merge)
+    monkeypatch.setattr(os, "replace", fail_replace)
+
+    with pytest.raises(PermissionError, match="locked"):
+        worker._run_merge_save_transaction([], str(output))
+
+    assert output.read_bytes() == b"old"
+    assert not list(tmp_path.glob(".result_*.tmp.pdf"))
+    assert finished == []
+
+
+def test_merge_save_transaction_does_not_replace_existing_pdf_after_cancel(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "result.pdf"
+    output.write_bytes(b"old")
+    worker = AppWorker("merge_save")
+    finished = collect_signal(worker.signals.finished)
+
+    def fake_merge(_items_data, working_path, **_kwargs):
+        Path(working_path).write_bytes(b"new")
+        worker.is_running = False
+        return {"saved": True, "message": "saved"}
+
+    def unexpected_replace(_src, _dst):
+        raise AssertionError("cancelled output must not replace the existing PDF")
+
+    monkeypatch.setattr(worker, "_run_merge_save", fake_merge)
+    monkeypatch.setattr(os, "replace", unexpected_replace)
+
+    result = worker._run_merge_save_transaction([], str(output))
+
+    assert result["cancelled"] is True
+    assert result["saved"] is False
+    assert output.read_bytes() == b"old"
+    assert not list(tmp_path.glob(".result_*.tmp.pdf"))
+    assert finished == []
+
+
+def test_cancel_during_powerpoint_conversion_does_not_start_word(
+    pdf_factory, tmp_path, monkeypatch
+):
+    powerpoint_source = tmp_path / "slides.pptx"
+    word_source = tmp_path / "report.docx"
+    powerpoint_source.write_bytes(b"placeholder")
+    word_source.write_bytes(b"placeholder")
+    converted = pdf_factory("powerpoint-converted.pdf", ["SLIDE"])
+    output = tmp_path / "output.pdf"
+    worker = AppWorker("merge_save")
+    conversion_calls = []
+
+    def fake_powerpoint_convert(path, app_instance=None, **_kwargs):
+        conversion_calls.append(("powerpoint", Path(path).name))
+        worker.is_running = False
+        return str(converted), app_instance
+
+    def unexpected_word_convert(*_args, **_kwargs):
+        conversion_calls.append(("word", "unexpected"))
+        raise AssertionError("Word conversion must not start after cancellation")
+
+    monkeypatch.setattr(
+        worker, "_convert_powerpoint_to_pdf", fake_powerpoint_convert
+    )
+    monkeypatch.setattr(worker, "_convert_word_to_pdf", unexpected_word_convert)
+    force_microsoft_office_converter(worker, monkeypatch)
+
+    result = worker._run_merge_save(
+        [
+            {
+                "type": "powerpoint",
+                "path": str(powerpoint_source),
+                "original_path": str(powerpoint_source),
+                "rotation": 0,
+            },
+            {
+                "type": "word",
+                "path": str(word_source),
+                "original_path": str(word_source),
+                "rotation": 0,
+            },
+        ],
+        str(output),
+        office_converter=app_module.OFFICE_CONVERTER_MICROSOFT,
+    )
+
+    assert conversion_calls == [("powerpoint", "slides.pptx")]
+    assert result is None
+    assert not output.exists()
+    assert not converted.exists()
+
+
+def test_cancel_during_libreoffice_conversion_stops_before_next_document(
+    pdf_factory, tmp_path, monkeypatch
+):
+    powerpoint_source = tmp_path / "slides.pptx"
+    word_source = tmp_path / "report.docx"
+    powerpoint_source.write_bytes(b"placeholder")
+    word_source.write_bytes(b"placeholder")
+    converted = pdf_factory("libreoffice-converted.pdf", ["SLIDE"])
+    output = tmp_path / "output.pdf"
+    worker = AppWorker("merge_save")
+    conversion_calls = []
+
+    monkeypatch.setattr(
+        worker,
+        "_resolve_office_converter",
+        lambda *_args, **_kwargs: {
+            "engine": app_module.OFFICE_CONVERTER_LIBREOFFICE,
+            "reason": "test",
+            "libreoffice_path": "soffice.com",
+            "libreoffice_version": "LibreOffice test",
+        },
+    )
+
+    def fake_libreoffice_convert(path, _executable):
+        conversion_calls.append(Path(path).name)
+        worker.is_running = False
+        return str(converted)
+
+    monkeypatch.setattr(
+        worker, "_convert_libreoffice_to_pdf", fake_libreoffice_convert
+    )
+
+    result = worker._run_merge_save(
+        [
+            {
+                "type": "powerpoint",
+                "path": str(powerpoint_source),
+                "original_path": str(powerpoint_source),
+                "rotation": 0,
+            },
+            {
+                "type": "word",
+                "path": str(word_source),
+                "original_path": str(word_source),
+                "rotation": 0,
+            },
+        ],
+        str(output),
+        office_converter=app_module.OFFICE_CONVERTER_LIBREOFFICE,
+    )
+
+    assert conversion_calls == ["slides.pptx"]
+    assert result is None
+    assert not output.exists()
+    assert not converted.exists()
+
+
 def test_merge_can_add_header_footer_and_page_number(pdf_factory, tmp_path):
     source = pdf_factory("source.pdf", ["BODY"])
     output = tmp_path / "decorated.pdf"
@@ -1066,6 +1265,125 @@ def test_create_office_app_reuses_existing_powerpoint_without_ownership(monkeypa
     assert app.WindowState == 7
     assert worker._quit_owned_office_app(app, "PowerPoint") is False
     assert app.quit_called is False
+
+
+def test_word_external_content_security_disables_link_updates():
+    options = SimpleNamespace(UpdateLinksAtOpen=True, UpdateLinksAtPrint=True)
+    app = SimpleNamespace(Options=options)
+
+    AppWorker._configure_office_external_content_security(app, "Word")
+
+    assert options.UpdateLinksAtOpen is False
+    assert options.UpdateLinksAtPrint is False
+
+
+def test_excel_external_content_security_disables_links_events_and_calculation():
+    app = SimpleNamespace(
+        AskToUpdateLinks=True,
+        EnableEvents=True,
+        Calculation=123,
+    )
+
+    AppWorker._configure_office_external_content_security(app, "Excel")
+
+    assert app.AskToUpdateLinks is False
+    assert app.EnableEvents is False
+    assert app.Calculation == app_module.EXCEL_CALCULATION_MANUAL
+
+
+@pytest.mark.parametrize(
+    ("app_name", "collection_name", "expected_kwargs"),
+    [
+        (
+            "Word",
+            "Documents",
+            {
+                "ConfirmConversions": False,
+                "ReadOnly": True,
+                "AddToRecentFiles": False,
+                "Revert": False,
+                "Visible": False,
+                "OpenAndRepair": False,
+                "NoEncodingDialog": True,
+            },
+        ),
+        (
+            "Excel",
+            "Workbooks",
+            {
+                "UpdateLinks": app_module.EXCEL_UPDATE_LINKS_NEVER,
+                "ReadOnly": True,
+                "IgnoreReadOnlyRecommended": True,
+                "AddToMru": False,
+                "Notify": False,
+            },
+        ),
+        (
+            "PowerPoint",
+            "Presentations",
+            {
+                "ReadOnly": True,
+                "Untitled": False,
+                "WithWindow": False,
+            },
+        ),
+    ],
+)
+def test_office_open_forces_macro_disable_and_restores_security(
+    tmp_path, app_name, collection_name, expected_kwargs
+):
+    source = tmp_path / "office-file"
+    source.write_bytes(b"placeholder")
+    document = object()
+    calls = []
+    app = SimpleNamespace(AutomationSecurity=1)
+
+    class Collection:
+        def Open(self, path, **kwargs):
+            calls.append((path, kwargs, app.AutomationSecurity))
+            return document
+
+    setattr(app, collection_name, Collection())
+
+    result = AppWorker._open_office_document_safely(app, app_name, str(source))
+
+    assert result is document
+    assert calls == [
+        (
+            os.path.abspath(source),
+            expected_kwargs,
+            app_module.MSO_AUTOMATION_SECURITY_FORCE_DISABLE,
+        )
+    ]
+    assert app.AutomationSecurity == 1
+
+
+def test_office_open_aborts_when_macro_disable_cannot_be_applied(tmp_path):
+    source = tmp_path / "unsafe.docm"
+    source.write_bytes(b"placeholder")
+    open_calls = []
+
+    class App:
+        def __init__(self):
+            self._automation_security = 1
+            self.Documents = SimpleNamespace(
+                Open=lambda *_args, **_kwargs: open_calls.append(True)
+            )
+
+        @property
+        def AutomationSecurity(self):
+            return self._automation_security
+
+        @AutomationSecurity.setter
+        def AutomationSecurity(self, value):
+            if value == app_module.MSO_AUTOMATION_SECURITY_FORCE_DISABLE:
+                raise RuntimeError("security setting rejected")
+            self._automation_security = value
+
+    with pytest.raises(RuntimeError, match="security setting rejected"):
+        AppWorker._open_office_document_safely(App(), "Word", str(source))
+
+    assert open_calls == []
 
 
 def test_merge_passes_suppress_office_markup_to_office_converter(

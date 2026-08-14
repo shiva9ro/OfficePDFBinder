@@ -535,6 +535,9 @@ WORD_EXPORT_CREATE_NO_BOOKMARKS = 0  # wdExportCreateNoBookmarks
 EXCEL_EXPORT_PDF_TYPE = 0  # xlTypePDF
 EXCEL_PRINT_NO_COMMENTS = -4142  # xlPrintNoComments
 POWERPOINT_SAVE_AS_PDF_FORMAT = 32  # ppSaveAsPDF
+MSO_AUTOMATION_SECURITY_FORCE_DISABLE = 3  # msoAutomationSecurityForceDisable
+EXCEL_UPDATE_LINKS_NEVER = 0
+EXCEL_CALCULATION_MANUAL = -4135  # xlCalculationManual
 OFFICE_CONVERTER_AUTO = "auto"
 OFFICE_CONVERTER_MICROSOFT = "microsoft-office"
 OFFICE_CONVERTER_LIBREOFFICE = "libreoffice"
@@ -1040,6 +1043,7 @@ class WorkerSignals(QObject):
     non_cancellable_finished = Signal()
     finished = Signal(str, str, str)
     error = Signal(str, str)
+    run_completed = Signal(object)
 
 
 class AppWorker(QRunnable):
@@ -1109,6 +1113,85 @@ class AppWorker(QRunnable):
             elif hasattr(app, "Visible"):
                 app.Visible = False
         return app
+
+    @staticmethod
+    def _configure_office_external_content_security(app, app_name):
+        """外部リンク等を更新せず、保存済みの内容でPDF化する設定を適用する。"""
+        if app_name == "Word":
+            app.Options.UpdateLinksAtOpen = False
+            app.Options.UpdateLinksAtPrint = False
+        elif app_name == "Excel":
+            app.AskToUpdateLinks = False
+            app.EnableEvents = False
+            app.Calculation = EXCEL_CALCULATION_MANUAL
+
+    @staticmethod
+    def _open_office_document_safely(app, app_name, office_path):
+        """マクロを強制無効化し、外部リンクを更新せず読み取り専用で開く。"""
+        previous_automation_security = app.AutomationSecurity
+        document = None
+        restore_error = None
+        try:
+            app.AutomationSecurity = MSO_AUTOMATION_SECURITY_FORCE_DISABLE
+            if int(app.AutomationSecurity) != MSO_AUTOMATION_SECURITY_FORCE_DISABLE:
+                raise RuntimeError(
+                    translate(
+                        "Worker", "Officeのマクロ無効化設定を確認できませんでした。"
+                    )
+                )
+
+            absolute_path = os.path.abspath(office_path)
+            if app_name == "Word":
+                document = app.Documents.Open(
+                    absolute_path,
+                    ConfirmConversions=False,
+                    ReadOnly=True,
+                    AddToRecentFiles=False,
+                    Revert=False,
+                    Visible=False,
+                    OpenAndRepair=False,
+                    NoEncodingDialog=True,
+                )
+            elif app_name == "Excel":
+                document = app.Workbooks.Open(
+                    absolute_path,
+                    UpdateLinks=EXCEL_UPDATE_LINKS_NEVER,
+                    ReadOnly=True,
+                    IgnoreReadOnlyRecommended=True,
+                    AddToMru=False,
+                    Notify=False,
+                )
+            else:
+                document = app.Presentations.Open(
+                    absolute_path,
+                    ReadOnly=True,
+                    Untitled=False,
+                    WithWindow=False,
+                )
+        finally:
+            try:
+                app.AutomationSecurity = previous_automation_security
+            except Exception as e:
+                restore_error = e
+
+        if restore_error is not None:
+            if document is not None:
+                try:
+                    if app_name == "Word":
+                        document.Close(0)
+                    elif app_name == "Excel":
+                        document.Close(False)
+                    else:
+                        document.Close()
+                except Exception:
+                    pass
+            raise RuntimeError(
+                translate(
+                    "Worker",
+                    "Officeのマクロセキュリティ設定を元に戻せませんでした。",
+                )
+            ) from restore_error
+        return document
 
     def _find_libreoffice_executable(self, explicit_path=None):
         candidates = []
@@ -1418,13 +1501,15 @@ class AppWorker(QRunnable):
 
     @Slot()
     def run(self):
-        if sys.platform == "win32" and win32com:
-            pythoncom.CoInitialize()
+        com_initialized = False
         try:
+            if sys.platform == "win32" and win32com:
+                pythoncom.CoInitialize()
+                com_initialized = True
             if self.task_name == "add_files":
                 self._run_add_files(**self.kwargs)
             elif self.task_name == "merge_save":
-                self._run_merge_save(**self.kwargs)
+                self._run_merge_save_transaction(**self.kwargs)
             elif self.task_name == "export_images":
                 self._run_export_images(**self.kwargs)
             elif self.task_name == "batch_merge_subfolders":
@@ -1437,8 +1522,12 @@ class AppWorker(QRunnable):
                 ).format(task=self.task_name, error=e),
             )
         finally:
-            if sys.platform == "win32" and win32com:
-                pythoncom.CoUninitialize()
+            try:
+                if com_initialized:
+                    pythoncom.CoUninitialize()
+            finally:
+                # 業務上のfinished/errorとは別に、run()の後始末完了を通知する。
+                self.signals.run_completed.emit(self)
 
     def _run_add_files(self, file_paths):
         total_files = len(file_paths)
@@ -1620,6 +1709,81 @@ class AppWorker(QRunnable):
                 translate("Worker", "処理を中止しました。"),
             )
 
+    def _run_merge_save_transaction(
+        self,
+        items_data,
+        output_path,
+        overwrite_existing=True,
+        **merge_kwargs,
+    ):
+        """既存PDFを保護しながら、共通のPDF生成処理を実行する。"""
+        final_output_path = os.path.abspath(output_path)
+        final_output = Path(final_output_path)
+        output_exists = final_output.exists()
+        emit_completion = merge_kwargs.pop("emit_completion", True)
+        temp_output_path = None
+
+        if output_exists and not overwrite_existing:
+            return {
+                "saved": False,
+                "skipped_existing": True,
+                "output_path": final_output_path,
+            }
+
+        working_output_path = final_output_path
+        try:
+            if output_exists:
+                temp_fd, temp_output_path = tempfile.mkstemp(
+                    prefix=f".{final_output.stem}_",
+                    suffix=".tmp.pdf",
+                    dir=str(final_output.parent),
+                )
+                os.close(temp_fd)
+                os.remove(temp_output_path)
+                working_output_path = temp_output_path
+
+            result = self._run_merge_save(
+                items_data,
+                working_output_path,
+                message_output_path=final_output_path,
+                emit_completion=False,
+                **merge_kwargs,
+            )
+            if not result or not os.path.exists(working_output_path):
+                return result
+
+            if not self.is_running:
+                # 保存中に終了要求が届いた場合、既存PDFは置き換えない。
+                # 新規PDFは直接保存済みの正常なファイルなので、そのまま残す。
+                result["output_path"] = final_output_path
+                result["cancelled"] = True
+                if output_exists:
+                    result["saved"] = False
+                return result
+
+            # _run_merge_save()のfinallyで全PyMuPDFハンドルが閉じた後に置換する。
+            if output_exists:
+                os.replace(working_output_path, final_output_path)
+                temp_output_path = None
+
+            result["output_path"] = final_output_path
+            if emit_completion:
+                self.signals.finished.emit(
+                    self.task_name,
+                    translate("Worker", "保存完了"),
+                    result["message"],
+                )
+            return result
+        finally:
+            if temp_output_path and os.path.exists(temp_output_path):
+                try:
+                    os.remove(temp_output_path)
+                except OSError as e:
+                    _debug_log(
+                        f"[PDF SAVE] 一時PDFの削除に失敗: "
+                        f"{temp_output_path}, error={e}"
+                    )
+
     def _run_merge_save(
         self,
         items_data,
@@ -1638,6 +1802,7 @@ class AppWorker(QRunnable):
         office_retry_delay_seconds=1.0,
         office_converter=OFFICE_CONVERTER_AUTO,
         libreoffice_path=None,
+        message_output_path=None,
     ):
         def report_error(title, message):
             if collected_errors is not None:
@@ -1785,6 +1950,8 @@ class AppWorker(QRunnable):
                         f"version={office_converter_info.get('libreoffice_version') or ''}"
                     )
                 for path, task in ordered_tasks:
+                    if not self.is_running:
+                        break
                     if not _is_office_item_type(task["type"]):
                         continue
 
@@ -1816,6 +1983,8 @@ class AppWorker(QRunnable):
                             )
                         last_error = ""
                         for attempt in range(1, max_attempts + 1):
+                            if not self.is_running:
+                                break
                             try:
                                 temp_pdf = self._convert_libreoffice_to_pdf(
                                     path,
@@ -1839,11 +2008,13 @@ class AppWorker(QRunnable):
                                     f"{os.path.basename(path)}: {e}"
                                 )
                             if temp_pdf:
+                                temp_files_to_clean.append(temp_pdf)
+                                if not self.is_running:
+                                    break
                                 if attempt > 1:
                                     retried_office_conversions.append(
                                         ("LibreOffice", os.path.basename(path), attempt)
                                     )
-                                temp_files_to_clean.append(temp_pdf)
                                 task["converted_pdf_path"] = temp_pdf
                                 break
                             if attempt >= max_attempts:
@@ -1866,6 +2037,8 @@ class AppWorker(QRunnable):
                                 )
                             )
                             time.sleep(max(0.0, office_retry_delay_seconds))
+                        if not self.is_running:
+                            break
                         continue
 
                     app_instance = office_apps[office_type]
@@ -1880,6 +2053,8 @@ class AppWorker(QRunnable):
 
                     if converter:
                         for attempt in range(1, max_attempts + 1):
+                            if not self.is_running:
+                                break
                             temp_pdf, app_instance = converter(
                                 path,
                                 app_instance,
@@ -1888,11 +2063,13 @@ class AppWorker(QRunnable):
                             )
                             office_apps[office_type] = app_instance
                             if temp_pdf:
+                                temp_files_to_clean.append(temp_pdf)
+                                if not self.is_running:
+                                    break
                                 if attempt > 1:
                                     retried_office_conversions.append(
                                         (app_name, os.path.basename(path), attempt)
                                     )
-                                temp_files_to_clean.append(temp_pdf)
                                 task["converted_pdf_path"] = temp_pdf
                                 break
 
@@ -1924,6 +2101,8 @@ class AppWorker(QRunnable):
                                 app_instance = None
                                 office_apps[office_type] = None
                             time.sleep(max(0.0, office_retry_delay_seconds))
+                        if not self.is_running:
+                            break
                         if not temp_pdf:
                             continue
 
@@ -2343,7 +2522,7 @@ class AppWorker(QRunnable):
                 if emit_progress:
                     self.signals.progress.emit(100, translate("Worker", "保存完了"))
                 message = translate("Worker", "PDFを保存しました:\n{path}").format(
-                    path=output_path
+                    path=message_output_path or output_path
                 )
                 if failed_office_conversions:
                     skipped_lines = []
@@ -2686,16 +2865,12 @@ class AppWorker(QRunnable):
                     break
                 continue
 
-            use_temp_output = output_pdf.exists()
-            temp_output = output_root / f".{output_pdf.stem}_{timestamp}.tmp.pdf"
-            save_path = temp_output if use_temp_output else output_pdf
             merge_errors = []
             try:
-                if use_temp_output and temp_output.exists():
-                    temp_output.unlink()
-                merge_result = self._run_merge_save(
+                merge_result = self._run_merge_save_transaction(
                     items_data,
-                    str(save_path),
+                    str(output_pdf),
+                    overwrite_existing=overwrite,
                     bookmarks=bookmarks,
                     show_outlines=show_bookmarks_on_open,
                     remove_pdf_annotations=remove_pdf_annotations,
@@ -2711,7 +2886,10 @@ class AppWorker(QRunnable):
                     libreoffice_path=libreoffice_path,
                 )
 
-                if not merge_result or not save_path.exists():
+                if not self.is_running:
+                    break
+
+                if not merge_result or not output_pdf.exists():
                     message = (
                         " / ".join(message for _title, message in merge_errors)
                         if merge_errors
@@ -2725,14 +2903,10 @@ class AppWorker(QRunnable):
                         "Error",
                         message,
                     )
-                    if use_temp_output and temp_output.exists():
-                        temp_output.unlink()
                     if not continue_on_error:
                         break
                     continue
 
-                if use_temp_output:
-                    os.replace(temp_output, output_pdf)
                 failed_office = merge_result.get("failed_office_conversions", [])
                 retried_office = merge_result.get("retried_office_conversions", [])
                 converter_info = merge_result.get("office_converter") or {}
@@ -2772,11 +2946,6 @@ class AppWorker(QRunnable):
                     " / ".join(result_messages),
                 )
             except Exception as e:
-                if use_temp_output and temp_output.exists():
-                    try:
-                        temp_output.unlink()
-                    except Exception:
-                        pass
                 add_log(
                     subfolder,
                     output_pdf,
@@ -2873,17 +3042,9 @@ class AppWorker(QRunnable):
         try:
             temp_pdf_path = _create_office_temp_pdf_path(office_path)
 
-            open_method = getattr(
-                app,
-                (
-                    "Presentations"
-                    if app_name == "PowerPoint"
-                    else ("Workbooks" if app_name == "Excel" else "Documents")
-                ),
-            )
-
-            # ファイルを読み取り専用で開く。
-            doc = open_method.Open(os.path.abspath(office_path), ReadOnly=True)
+            # マクロと外部リンクを無効化し、読み取り専用で開く。
+            self._configure_office_external_content_security(app, app_name)
+            doc = self._open_office_document_safely(app, app_name, office_path)
 
             if app_name == "Excel" and suppress_office_markup:
                 try:
@@ -3634,6 +3795,8 @@ class AppWorker(QRunnable):
                 pdf_items.append(item)
 
         # Officeファイルの変換（アプリケーションを再利用）
+        active_office_app = None
+        active_office_name = "Office"
         try:
             for office_type in ("word", "excel", "powerpoint"):
                 if not office_items_by_type[office_type]:
@@ -3644,6 +3807,7 @@ class AppWorker(QRunnable):
                     app_name = "Excel"
                 elif office_type == "powerpoint":
                     app_name = "PowerPoint"
+                active_office_name = app_name
 
                 app_instance = None
                 for item in office_items_by_type[office_type]:
@@ -3664,6 +3828,7 @@ class AppWorker(QRunnable):
 
                     if converter:
                         temp_pdf, app_instance = converter(original_path, app_instance)
+                        active_office_app = app_instance
                         if not temp_pdf:
                             continue
                         temp_files_to_clean.append(temp_pdf)
@@ -3674,6 +3839,7 @@ class AppWorker(QRunnable):
                 if app_instance:
                     self._quit_owned_office_app(app_instance, app_name)
                     self._forget_office_app(app_instance)
+                    active_office_app = None
         except Exception as e:
             self.signals.error.emit(
                 translate("Worker", "Officeファイルを変換できません"),
@@ -3683,6 +3849,10 @@ class AppWorker(QRunnable):
                 ).format(error=e),
             )
             return
+        finally:
+            if active_office_app:
+                self._quit_owned_office_app(active_office_app, active_office_name)
+                self._forget_office_app(active_office_app)
 
         try:
             # PDFファイルと変換済みOfficeファイルを処理
@@ -4209,6 +4379,53 @@ class HeaderFooterSettingsDialog(QDialog):
         self.page_number_start_spin.setValue(settings.get("page_number_start", 1))
 
 
+class WorkerProgressDialog(QProgressDialog):
+    """中止要求後もワーカーの終了まで表示を維持する進捗ダイアログ。"""
+
+    cancel_requested = Signal()
+
+    def __init__(self, label_text, cancel_text, parent=None):
+        super().__init__(label_text, None, 0, 100, parent)
+        self._allow_close = False
+        self._cancel_requested = False
+        self.cancel_button = QPushButton(cancel_text, self)
+        self.setCancelButton(self.cancel_button)
+        try:
+            self.cancel_button.clicked.disconnect()
+        except RuntimeError:
+            pass
+        self.cancel_button.clicked.connect(self.request_cancel)
+        self.setAutoClose(False)
+        self.setAutoReset(False)
+
+    @Slot()
+    def request_cancel(self):
+        if self._allow_close or self._cancel_requested:
+            return
+        self._cancel_requested = True
+        self.cancel_requested.emit()
+
+    def mark_cancel_pending(self):
+        self._cancel_requested = True
+        self.cancel_button.setVisible(False)
+
+    def allow_close(self):
+        self._allow_close = True
+
+    def closeEvent(self, event):
+        if self._allow_close:
+            super().closeEvent(event)
+            return
+        event.ignore()
+        self.request_cancel()
+
+    def reject(self):
+        if self._allow_close:
+            super().reject()
+            return
+        self.request_cancel()
+
+
 class OfficePDFBinderApp(QMainWindow):
     # --- レイアウト定数 ---
     # グローバル定数を参照
@@ -4240,6 +4457,9 @@ class OfficePDFBinderApp(QMainWindow):
         self._restore_maximized = initially_maximized
         self.threadpool = QThreadPool()
         self.current_worker = None
+        self._close_requested = False
+        self._allow_close = False
+        self._non_cancellable_operation_active = False
         self.bookmarks = []
         self.auto_bookmarks_enabled = True
         self.show_bookmarks_on_open = True
@@ -5109,10 +5329,14 @@ class OfficePDFBinderApp(QMainWindow):
             )
             return
         self.current_worker = AppWorker(task_name, **kwargs)
+        self._non_cancellable_operation_active = False
         self.setup_progress_dialog(user_facing_name)
         self.current_worker.signals.progress.connect(self.update_progress)
         self.current_worker.signals.finished.connect(self.on_worker_finished)
         self.current_worker.signals.error.connect(self.on_worker_error)
+        self.current_worker.signals.run_completed.connect(
+            self._on_worker_run_completed
+        )
         self.current_worker.signals.non_cancellable_started.connect(
             self._on_non_cancellable_started
         )
@@ -7261,25 +7485,59 @@ class OfficePDFBinderApp(QMainWindow):
             f"[DEBUG] setup_progress_dialog: title='{title}', "
             f"label='{label}', activeThreadCount={self.threadpool.activeThreadCount()}"
         )
-        self.progress_dialog = QProgressDialog(
-            label, translate("MainWindow", "キャンセル"), 0, 100, self
+        self.progress_dialog = WorkerProgressDialog(
+            label,
+            translate("MainWindow", "中止"),
+            self,
         )
         self.progress_dialog.setWindowTitle(title)
         self.progress_dialog.setMinimumWidth(400)  # 単位はピクセルです
         self.progress_dialog.setWindowModality(Qt.WindowModal)
-        self.progress_dialog.setAutoClose(True)
-        self.progress_dialog.setAutoReset(True)
-        self.progress_dialog.canceled.connect(self.cancel_worker)
+        self.progress_dialog.cancel_requested.connect(self.cancel_worker)
         self.progress_dialog.show()
 
     def cancel_worker(self):
         if self.current_worker:
             self.current_worker.is_running = False
         if self.progress_dialog:
-            self.progress_dialog.setLabelText(
-                translate("MainWindow", "処理を中止しています...")
-            )
-            self.progress_dialog.setCancelButton(None)
+            if self._non_cancellable_operation_active:
+                message = translate(
+                    "MainWindow",
+                    "現在のOffice変換が終わり次第、中止します...",
+                )
+            else:
+                message = translate("MainWindow", "処理を中止しています...")
+            self.progress_dialog.setLabelText(message)
+            self.progress_dialog.mark_cancel_pending()
+
+    def _close_progress_dialog(self):
+        if not self.progress_dialog:
+            return
+        self._non_cancellable_operation_active = False
+        self.progress_dialog.allow_close()
+        self.progress_dialog.close()
+        self.progress_dialog = None
+
+    @Slot(object)
+    def _on_worker_run_completed(self, worker):
+        """ワーカーのrun()が実際に終了した後で参照と終了待ちを整理する。"""
+        is_current_worker = self.current_worker is worker
+        if is_current_worker:
+            self.current_worker = None
+        if is_current_worker and self.progress_dialog:
+            self._close_progress_dialog()
+        if self._close_requested:
+            QTimer.singleShot(0, self._finish_pending_close)
+
+    def _finish_pending_close(self):
+        """QThreadPoolからワーカーが外れたことを確認してウィンドウを閉じる。"""
+        if not self._close_requested:
+            return
+        if self.threadpool.activeThreadCount() > 0:
+            QTimer.singleShot(50, self._finish_pending_close)
+            return
+        self._allow_close = True
+        self.close()
 
     def update_progress(self, value, message):
         try:
@@ -7409,13 +7667,17 @@ class OfficePDFBinderApp(QMainWindow):
             f"title={title}, message={message}, "
             f"activeThreadCount(before)={self.threadpool.activeThreadCount()}"
         )
+        if self.current_worker and not getattr(
+            self.current_worker, "is_running", True
+        ):
+            return
         if self.progress_dialog:
             _debug_log(
                 "[DEBUG] on_worker_finished: progress_dialog が存在するため close() を呼びます。"
             )
-            self.progress_dialog.close()
-        self.progress_dialog = None
-        self.current_worker = None
+            self._close_progress_dialog()
+        if self._close_requested:
+            return
         if task_name == "add_files":
             self._generate_bookmarks_from_list()
             self._update_page_mode_actions_state()
@@ -7495,10 +7757,11 @@ class OfficePDFBinderApp(QMainWindow):
             )
 
     def on_worker_error(self, title, message):
-        if self.progress_dialog:
-            self.progress_dialog.close()
-        self.progress_dialog = None
-        self.current_worker = None
+        if self._close_requested or (
+            self.current_worker
+            and not getattr(self.current_worker, "is_running", True)
+        ):
+            return
         self._show_copyable_message(
             title,
             message,
@@ -7581,6 +7844,14 @@ class OfficePDFBinderApp(QMainWindow):
     def closeEvent(self, event):
         self._save_settings()  # ← [追加] アプリ終了前に設定を保存
 
+        if self._allow_close:
+            event.accept()
+            return
+
+        if self._close_requested:
+            event.ignore()
+            return
+
         if self.threadpool.activeThreadCount() > 0:
             if (
                 _show_standard_question(
@@ -7592,10 +7863,17 @@ class OfficePDFBinderApp(QMainWindow):
                 )
                 == QMessageBox.StandardButton.Yes
             ):
+                self._close_requested = True
                 if self.current_worker:
                     self.current_worker.is_running = False
-                self.threadpool.waitForDone(2000)
-                event.accept()
+                if self.progress_dialog:
+                    self.progress_dialog.setLabelText(
+                        translate("MainWindow", "処理を中止しています...")
+                    )
+                    self.progress_dialog.mark_cancel_pending()
+                self.setEnabled(False)
+                event.ignore()
+                QTimer.singleShot(0, self._finish_pending_close)
             else:
                 event.ignore()
         else:
@@ -7761,9 +8039,9 @@ class OfficePDFBinderApp(QMainWindow):
     @Slot(str)
     def _on_non_cancellable_started(self, message):
         """中断不可処理が始まったときに呼び出されるスロット。"""
+        self._non_cancellable_operation_active = True
         if self.progress_dialog:
             self.progress_dialog.setLabelText(message)
-            self.progress_dialog.setCancelButtonText(None)  # これでボタンが非表示になる
 
     def _toggle_bookmark_panel(self, checked):
         """ブックマークパネルの表示/非表示を切り替えます。"""
@@ -8195,10 +8473,7 @@ class OfficePDFBinderApp(QMainWindow):
     @Slot()
     def _on_non_cancellable_finished(self):
         """中断不可処理が終わったときに呼び出されるスロット。"""
-        if self.progress_dialog:
-            self.progress_dialog.setCancelButtonText(
-                translate("MainWindow", "キャンセル")
-            )  # これでボタンが再表示される
+        self._non_cancellable_operation_active = False
 
 
 # --- 単一インスタンス制御用の簡易サーバ ---

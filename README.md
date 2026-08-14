@@ -19,6 +19,9 @@ and rotate individual PDF pages before saving the result.
 Office files are converted through locally installed Microsoft Office or
 LibreOffice applications. Office PDF Binder does not upload documents to an
 online service.
+When Microsoft Office is used, documents are opened read-only with macros
+forcibly disabled. External links are not updated; the PDF uses the content
+already saved in the file, and no changes are saved back to the Office file.
 PDF files are loaded as individual pages. Word, Excel, and PowerPoint documents
 are added as files and converted to PDF when the combined PDF is saved.
 
@@ -289,7 +292,7 @@ temporary folders, caches, or registry settings.
 
 ## 8. Development and Testing
 
-The verified development and test environment uses Python 3.13.11.
+Development and testing use Python 3.13.
 Windows builds use the Visual Studio C++ Clang tools (`clang-cl`).
 
 Install runtime and development dependencies with:

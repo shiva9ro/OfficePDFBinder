@@ -80,6 +80,7 @@
 <p>Office PDF Binder は、PDFをページ単位で並べ替え・削除・回転し、Word / Excel / PowerPoint 文書や画像ファイルと一緒に1つのPDFへ結合できる Windows デスクトップアプリです。</p>
 <p>PDF、Word、Excel、PowerPoint の資料をまとめて、提出用・共有用の PDF を作る作業を効率化するために作成しました。</p>
 <p>PDFはページ単位で読み込みます。Word / Excel / PowerPoint はファイル単位で追加し、保存時にMicrosoft OfficeまたはLibreOfficeでPDFへ変換して結合します。</p>
+<p>Microsoft Officeで変換する場合、文書は読み取り専用で開き、マクロを強制的に無効化します。外部リンクは更新せず、ファイルに保存済みの内容を使用してPDF化し、元のOfficeファイルへ変更を保存しません。</p>
 <p><img alt="Office PDF Binder のメイン画面" src="docs/images/screenshot-main.png" /></p>
 <hr />
 <h2>1. 対応環境</h2>
@@ -119,13 +120,13 @@
 <hr />
 <h2>3. ダウンロード</h2>
 <p>GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。</p>
-<pre><code class="language-text">OfficePDFBinder_Setup_1.4.0.exe
-OfficePDFBinder_Portable_1.4.0.zip
+<pre><code class="language-text">OfficePDFBinder_Setup_1.4.1.exe
+OfficePDFBinder_Portable_1.4.1.zip
 </code></pre>
 <p>インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。</p>
 <h3>インストール時の注意</h3>
 <ul>
-<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.0 をインストールしてください。</li>
+<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.1 をインストールしてください。</li>
 <li>本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。</li>
 <li>Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office または LibreOffice のどちらかが必要です。再現性は一般的にMicrosoft Officeの方が高く、LibreOfficeはMicrosoft Officeを利用できない環境で有効です。</li>
 </ul>
@@ -332,7 +333,7 @@ GUI形式のEXEをPowerShellから確実に待機して終了コードを取得�
 <p>開発時は、OfficePDFBinder 用の Python 環境を有効化して作業します。</p>
 <p>確認済みの開発・テスト環境:</p>
 <ul>
-<li>Python 3.13.11</li>
+<li>Python 3.13</li>
 <li>Visual Studio C++ Clang tools（<code>clang-cl</code>）</li>
 </ul>
 <p>主な依存関係:</p>

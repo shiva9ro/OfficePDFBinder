@@ -19,7 +19,15 @@ python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest
 ```
 
-確認済みの開発・テスト環境はPython 3.13.11です。
+表示文言を追加・変更した場合は、テスト前に翻訳カタログを更新します。
+
+```powershell
+pyside6-lupdate OfficePDFBinder_Main.py -ts translations/OfficePDFBinder_en.ts -source-language ja_JP -target-language en_US
+```
+
+CIでは同じコマンドを実行し、更新後の `.ts` に未コミット差分が生じた場合は失敗します。
+
+開発・テストではPython 3.13系を使用します。CIでもPython 3.13を使用します。
 
 テスト一覧だけを表示する場合:
 
@@ -39,21 +47,20 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 
 ### 内訳
 
-| ファイル | 件数 | 主な確認内容 |
-|---|---:|---|
-| `tests/test_cli.py` | 8 | CLI引数、既存一括処理への設定引き渡し、汎用フォルダ名、CSVログ、終了コード |
-| `tests/test_gui_operations.py` | 19 | ページ移動、回転、削除、Undo/Redo、しおり、重複判定、自然順、状態表示、キャンセル、一括処理ダイアログ、画像書き出しDPI |
-| `tests/test_i18n.py` | 12 | 言語判定、英語翻訳、README/HTMLマニュアル、ビルド補助ファイル |
-| `tests/test_i18n_source_audit.py` | 1 | ユーザー表示文字列が翻訳対象になっていること |
-| `tests/test_page_number_format.py` | 4 | ページ番号4形式 |
-| `tests/test_page_number_pdf.py` | 12 | 4形式、回転4方向、横長・既存回転・CropBox・スキャンPDFを実PDFで確認 |
-| `tests/test_settings.py` | 3 | 設定保存、読込、破損設定からの継続 |
-| `tests/test_runtime_mode.py` | 5 | 通常版/ポータブル版の実行時パス、設定保存先、一時PDF作成先 |
-| `tests/test_ui_baseline.py` | 2 | 日本語UIとヘッダー・フッター設定の現行仕様 |
-| `tests/test_worker_pdf.py` | 40 | PDF読込、異常系、結合、回転、しおり、Office変換制御、Office所有権と一括処理リトライ、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
-| **合計** | **106** | |
+| ファイル | 主な確認内容 |
+|---|---|
+| `tests/test_cli.py` | CLI引数、既存一括処理への設定引き渡し、汎用フォルダ名、CSVログ、終了コード |
+| `tests/test_gui_operations.py` | ページ移動、回転、削除、Undo/Redo、しおり、重複判定、自然順、状態表示、キャンセル、安全な終了、一括処理ダイアログ、画像書き出しDPI |
+| `tests/test_i18n.py` | 言語判定、英語翻訳、翻訳カタログ同期、README/HTMLマニュアル、ビルド補助ファイル |
+| `tests/test_i18n_source_audit.py` | ユーザー表示文字列が翻訳対象になっていること |
+| `tests/test_page_number_format.py` | ページ番号4形式 |
+| `tests/test_page_number_pdf.py` | 4形式、回転4方向、横長・既存回転・CropBox・スキャンPDFを実PDFで確認 |
+| `tests/test_settings.py` | 設定保存、読込、破損設定からの継続 |
+| `tests/test_runtime_mode.py` | 通常版/ポータブル版の実行時パス、設定保存先、一時PDF作成先 |
+| `tests/test_ui_baseline.py` | 日本語UIとヘッダー・フッター設定の現行仕様 |
+| `tests/test_worker_pdf.py` | PDF読込、異常系、結合、既存PDFの安全な置換、回転、しおり、Office変換制御、Office所有権と一括処理リトライ、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
 
-`tests/conftest.py` はテストデータとGUI環境を準備するファイルで、テスト件数には含みません。
+正確なテスト件数は、更新漏れを避けるため本文には固定せず、`python -m pytest --collect-only -q` で確認します。`tests/conftest.py` はテストデータとGUI環境を準備するファイルです。
 テスト用PDFは実行時に一時フォルダーへ生成し、リポジトリには実データを置きません。
 
 ## 3. 手動テスト
@@ -76,6 +83,9 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] 一括処理で一時的なOffice変換失敗が発生した場合、最大2回再試行されることを確認する
 - [ ] 通常のGUI保存ではOffice変換が自動再試行されないことを確認する
 - [ ] パスワード保護・破損ファイルで明確なエラーを表示する
+- [ ] マクロ有効文書を開いてもAutoOpen／Document_Open／Workbook_Open等が実行されない
+- [ ] Word・Excelの外部リンクが更新されず、保存済みの値でPDF化される
+- [ ] Office変換後も元ファイルが更新されていない
 - [ ] 変換後にWord、Excel、PowerPointのプロセスが残らない
 
 ### 3.2 GUI操作
@@ -92,6 +102,10 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 - [ ] 空白ページを挿入し、保存PDFに空白ページが含まれることを確認する
 - [ ] PDF注釈付きPDFで、注釈除去ON/OFFの出力差を確認する
 - [ ] 保存、画像書き出し、キャンセルの完了表示を確認する
+- [ ] 進捗ダイアログの×、中止ボタン、Escで中止を要求しても、後始末が終わるまでダイアログが閉じない
+- [ ] Office変換中に中止を要求し、変換元文書・Officeプロセス・一時PDFが残らない
+- [ ] 既存PDFの保存中に終了を選んだ場合、既存PDFが置き換わらない
+- [ ] 新規PDFの保存完了直前に終了を選んだ場合、完成したPDFだけが残る
 
 ### 3.3 単一起動・エクスプローラー連携
 

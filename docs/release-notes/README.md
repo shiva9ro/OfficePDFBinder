@@ -25,10 +25,10 @@ GitHub Releaseでは見出しに自動アンカーが付かないため、日本
 
 ## 新規リリース
 
-以下はv1.4.0の例です。
+以下はv1.4.1の例です。
 
 ```powershell
-$version = "1.4.0"
+$version = "1.4.1"
 $tag = "v$version"
 $notes = "docs/release-notes/$tag.md"
 $installer = "Output/OfficePDFBinder_Setup_$version.exe"

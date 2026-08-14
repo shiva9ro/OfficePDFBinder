@@ -27,6 +27,18 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Check Qt translation catalog is current
+        run: |
+          pyside6-lupdate OfficePDFBinder_Main.py -ts translations/OfficePDFBinder_en.ts -source-language ja_JP -target-language en_US
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+          git diff --exit-code -- translations/OfficePDFBinder_en.ts
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Qt translation catalog is out of date. Run pyside6-lupdate and commit the updated .ts file."
+            exit 1
+          }
+
       - name: Compile Qt translations
         run: >
           pyside6-lrelease
