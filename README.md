@@ -342,6 +342,12 @@ is stored in `packaging/`. Run `build.ps1` from the project root.
 
 ---
 
+## Related articles
+
+- [Office文書とPDFをまとめて1つのPDFにするWindowsアプリ「Office PDF Binder」を作った (Qiita, Japanese)](https://qiita.com/shiva9ro/items/65761cb802810c480423)
+
+---
+
 ## 9. License
 
 - Office PDF Binder: GNU Affero General Public License v3.0 (`LICENSE.txt`)

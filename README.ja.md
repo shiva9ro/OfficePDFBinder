@@ -339,6 +339,12 @@ Gitリポジトリには、ソースコード、ビルドスクリプト、ラ�
 
 ---
 
+## 関連記事
+
+- [Office文書とPDFをまとめて1つのPDFにするWindowsアプリ「Office PDF Binder」を作った（Qiita）](https://qiita.com/shiva9ro/items/65761cb802810c480423)
+
+---
+
 ## 10. ライセンス
 
 - ライセンス: GNU AGPL v3.0（詳細は `LICENSE.txt`）
