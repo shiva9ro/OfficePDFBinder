@@ -59,6 +59,8 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 | `tests/test_runtime_mode.py` | 通常版/ポータブル版の実行時パス、設定保存先、一時PDF作成先 |
 | `tests/test_ui_baseline.py` | 日本語UIとヘッダー・フッター設定の現行仕様 |
 | `tests/test_worker_pdf.py` | PDF読込、異常系、結合、既存PDFの安全な置換、回転、しおり、Office変換制御、Office所有権と一括処理リトライ、画像追加、PDF注釈除去、画像拡大抑制、画像出力、一括処理 |
+| `tests/test_bookmark_hierarchy.py` | 階層しおりの読込・保存・削除、同一ページの親子、部分書出し、並べ替え、Undo/Redo |
+| `tests/test_audit_regressions.py` | 保存後のページ間リンク、回転画像、TIFFしおり、部分失敗、中止と追加キュー、設定と履歴、一括処理の自己取込み防止 |
 
 正確なテスト件数は、更新漏れを避けるため本文には固定せず、`python -m pytest --collect-only -q` で確認します。`tests/conftest.py` はテストデータとGUI環境を準備するファイルです。
 テスト用PDFは実行時に一時フォルダーへ生成し、リポジトリには実データを置きません。
@@ -117,10 +119,10 @@ Remove-Item Env:OFFICEPDFBINDER_KEEP_TEST_ARTIFACTS
 ### 3.4 ビルド・インストール
 
 - [ ] `build.ps1 -Mode Release`が完了する
-- [ ] クリーンなWindows 10/11 64bit環境でインストールできる
+- [ ] クリーンなWindows 11 64bit環境でインストールできる
 - [ ] Python未導入環境で起動できる
 - [ ] README、LICENSE、NOTICE、source.zipが同梱される
-- [ ] 通常ユーザーと管理者の両方でインストール先が適切になる
+- [ ] ユーザー専用でインストールし、旧管理者版との混在を防ぐ
 - [ ] ネットワーク上のインストーラー実行を拒否する
 - [ ] 旧バージョン検出時の案内が正しい
 - [ ] アンインストール後にアプリ本体と右クリックメニューが残らない
@@ -199,3 +201,22 @@ Nuitkaのコンパイラキャッシュによって、同一環境での2回目�
 | 残課題 | 再現手順、対象ファイルの特徴、回避策 |
 
 実データや内部文書はリポジトリへ追加せず、必要な場合は特徴だけを記録してください。
+# エクスプローラー一括追加のネイティブテスト
+
+自動テストはプロジェクト直下で `python -m pytest -q` を実行します。
+手動確認では、対象のバージョンとインストール版／ソース実行の別を記録してください。
+
+COMヘルパーのビルド・通信仕様・実機確認項目は
+[native/shell_bridge/README.md](native/shell_bridge/README.md)を参照してください。
+`build_shell_bridge.ps1` の通常、`-Tests`、`-IntegrationServer` の3種類をビルドすると、
+`tests/test_ipc_regressions.py` が実際のネイティブコードとCOM通信も検証します。
+COMテストはランダムなテスト用CLSIDを一時登録し、終了時に削除します。
+
+GitHub ActionsではWindows x64用のテストドライバー、COMテストサーバー、
+Explorer DLLとSparse Packageを作成してから、全pytestテストを実行します。
+アプリ本体のNuitkaビルドは実行しません。署名には使い捨てのランナー内で
+作成する自己署名証明書を使い、配布用の秘密鍵やGitHub Secretsは使いません。
+パッケージの実インストールは行わず、登録・解除は模擬処理で検証します。
+必要ファイルの欠落、およびIPC・Explorer・登録解除テストのスキップはCI失敗とします。
+結果のXMLはActionsの `windows-test-results` からダウンロードできます。
+ARM64での動作、実際の右クリック表示・前面化・インストールは別途手動確認します。

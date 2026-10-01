@@ -130,6 +130,24 @@ APP_ICON_FILENAME = "app.ico"
 PORTABLE_MARKER_FILENAME = "OfficePDFBinder.portable"
 
 
+def _filter_bookmark_tree(bookmarks, keep):
+    """Filter a preorder tree, promoting children to their nearest retained ancestor."""
+    result = []
+    ancestors = []
+    for bookmark in bookmarks:
+        level = max(1, int(bookmark.get("level", 1)))
+        while ancestors and ancestors[-1][0] >= level:
+            ancestors.pop()
+        retained = bool(keep(bookmark))
+        if retained:
+            entry = dict(bookmark)
+            if "level" in bookmark or ancestors:
+                entry["level"] = 1 + sum(flag for _, flag in ancestors)
+            result.append(entry)
+        ancestors.append((level, retained))
+    return result
+
+
 def _get_runtime_dir():
     """実行ファイル、または開発中のスクリプトが置かれたフォルダーを返す。"""
     if getattr(sys, "frozen", False) or "__compiled__" in globals():
@@ -1053,6 +1071,7 @@ class AppWorker(QRunnable):
         self.task_name = task_name
         self.kwargs = kwargs
         self.is_running = True
+        self.saved_output_path = None
         self._owned_office_app_ids = set()
         self._office_conversion_unavailable = False
 
@@ -1572,7 +1591,7 @@ class AppWorker(QRunnable):
                         try:
                             toc = doc.get_toc()
                             if toc:
-                                # 階層構造のしおりをフラットなリストに変換
+                                # 深さ優先順と階層を保持して読み込む
                                 for item in toc:
                                     if len(item) >= 3:
                                         title = item[1]
@@ -1583,6 +1602,8 @@ class AppWorker(QRunnable):
                                             pdf_bookmarks.append(
                                                 {
                                                     "title": title,
+                                                    "level": item[0],
+                                                    "source_index": len(pdf_bookmarks),
                                                     "path": path,
                                                     "page_num": page_num,
                                                     "auto": False,  # PDFから読み込んだしおりは手動しおりとして扱う
@@ -1717,6 +1738,7 @@ class AppWorker(QRunnable):
         **merge_kwargs,
     ):
         """既存PDFを保護しながら、共通のPDF生成処理を実行する。"""
+        self.saved_output_path = None
         final_output_path = os.path.abspath(output_path)
         final_output = Path(final_output_path)
         output_exists = final_output.exists()
@@ -1767,6 +1789,7 @@ class AppWorker(QRunnable):
                 temp_output_path = None
 
             result["output_path"] = final_output_path
+            self.saved_output_path = final_output_path
             if emit_completion:
                 self.signals.finished.emit(
                     self.task_name,
@@ -1803,6 +1826,7 @@ class AppWorker(QRunnable):
         office_converter=OFFICE_CONVERTER_AUTO,
         libreoffice_path=None,
         message_output_path=None,
+        preserve_source_bookmarks=None,
     ):
         def report_error(title, message):
             if collected_errors is not None:
@@ -1857,6 +1881,9 @@ class AppWorker(QRunnable):
             print(f"警告: ディスク容量チェックに失敗しました: {e}")
 
         final_doc = fitz.open()
+        source_doc = None
+        page_destinations = {}
+        pending_internal_links = []
         temp_files_to_clean = []
         failed_office_conversions = []
         retried_office_conversions = []
@@ -1864,20 +1891,22 @@ class AppWorker(QRunnable):
         try:
             # --- ステップ1: しおり情報を準備 ---
             pending_toc_entries = []
+            if preserve_source_bookmarks is None:
+                preserve_source_bookmarks = bookmarks is None
             bookmark_map = {}
             if bookmarks:
-                for b in bookmarks:
+                for bookmark_order, b in enumerate(bookmarks):
                     path = b.get("path")
                     if not path:
                         continue
                     bookmark_map.setdefault(path, []).append(
                         {
+                            "order": bookmark_order,
+                            "level": b.get("level", 1),
                             "title": b.get("title", translate("Worker", "無題")),
                             "page_num": b.get("page_num", 0),
                         }
                     )
-                for entries in bookmark_map.values():
-                    entries.sort(key=lambda entry: entry.get("page_num", 0))
 
             # --- ステップ2: items_dataの順序を保持しながら、同じファイルの連続するページをまとめる ---
             ordered_tasks = []
@@ -2151,6 +2180,7 @@ class AppWorker(QRunnable):
                     for bm in file_bookmarks:
                         pending_toc_entries.append(
                             {
+                                **bm,
                                 "title": bm.get("title", translate("Worker", "無題")),
                                 "page_index": page_offset_for_bookmark,
                             }
@@ -2162,6 +2192,7 @@ class AppWorker(QRunnable):
                     continue
 
                 if task["type"] == "image":
+                    bookmark_start = len(pending_toc_entries)
                     try:
                         image_pages = task["pages_to_add"] or [0]
                         file_bookmarks = bookmark_map.get(path, [])
@@ -2170,9 +2201,10 @@ class AppWorker(QRunnable):
                             try:
                                 relative_index = image_pages.index(page_num)
                             except ValueError:
-                                relative_index = 0
+                                continue
                             pending_toc_entries.append(
                                 {
+                                    **bm,
                                     "title": bm.get(
                                         "title", translate("Worker", "無題")
                                     ),
@@ -2225,6 +2257,7 @@ class AppWorker(QRunnable):
                             if rotation:
                                 page.set_rotation(rotation)
                     except Exception as e:
+                        del pending_toc_entries[bookmark_start:]
                         while final_doc.page_count > page_offset_for_bookmark:
                             final_doc.delete_page(page_offset_for_bookmark)
                         report_error(
@@ -2258,7 +2291,6 @@ class AppWorker(QRunnable):
 
                 # アプリ内で管理しているしおりを追加（優先度: 高）
                 file_bookmarks = bookmark_map.get(path, [])
-                app_bookmark_pages = set()  # アプリ内のしおりが使用するページ番号を記録
                 if file_bookmarks:
                     for bm in file_bookmarks:
                         page_num = bm.get("page_num", 0)
@@ -2274,60 +2306,53 @@ class AppWorker(QRunnable):
                                 0, min(page_num, len(pages_to_insert) - 1)
                             )
                         target_page_index = page_offset_for_bookmark + relative_index
-                        app_bookmark_pages.add(target_page_index)
                         pending_toc_entries.append(
                             {
+                                **bm,
                                 "title": bm.get("title", translate("Worker", "無題")),
                                 "page_index": target_page_index,
                             }
                         )
 
-                # 既存PDFのしおりを保持（アプリ内のしおりと重複しない場合のみ）
-                existing_toc = source_doc.get_toc()
-                if existing_toc:
-                    for toc_entry in existing_toc:
-                        # TOCエントリの形式: [level, title, page_num, ...]
-                        if len(toc_entry) < 3:
-                            continue
-                        original_page_num = (
-                            toc_entry[2] - 1
-                        )  # TOCのページ番号は1ベースなので0ベースに変換
-
-                        # ページ選択がある場合、選択範囲内のしおりのみを処理
-                        if task["pages_to_add"]:
-                            if original_page_num not in pages_to_insert:
-                                continue
-                            try:
-                                relative_index = pages_to_insert.index(
-                                    original_page_num
-                                )
-                            except ValueError:
-                                continue
-                        else:
-                            if original_page_num < 0 or original_page_num >= len(
-                                pages_to_insert
-                            ):
-                                continue
-                            relative_index = original_page_num
-
-                        target_page_index = page_offset_for_bookmark + relative_index
-
-                        # アプリ内のしおりと重複しない場合のみ追加
-                        if target_page_index not in app_bookmark_pages:
-                            pending_toc_entries.append(
-                                {
-                                    "title": (
-                                        toc_entry[1]
-                                        if len(toc_entry) > 1
-                                        else translate("Worker", "無題")
-                                    ),
-                                    "page_index": target_page_index,
-                                }
-                            )
+                # 一括処理など、元しおりの保持を指定した場合だけ読み込む。
+                # 同一ページでも別ノードなので、ページ番号による重複排除はしない。
+                if preserve_source_bookmarks:
+                    source_bookmarks = [
+                        {"level": entry[0], "title": entry[1], "page_num": entry[2] - 1}
+                        for entry in source_doc.get_toc() if len(entry) >= 3
+                    ]
+                    page_positions = {}
+                    for relative_index, page_num in enumerate(pages_to_insert):
+                        page_positions.setdefault(page_num, relative_index)
+                    for bookmark in _filter_bookmark_tree(
+                        source_bookmarks, lambda b: b["page_num"] in page_positions
+                    ):
+                        pending_toc_entries.append({
+                            **bookmark,
+                            "page_index": page_offset_for_bookmark + page_positions[bookmark["page_num"]],
+                        })
 
                 # ページ挿入と回転の処理
                 for page_num in pages_to_insert:
+                    if not 0 <= page_num < source_doc.page_count:
+                        raise ValueError(f"Source page no longer exists: {path}, page={page_num + 1}")
                     page_offset = final_doc.page_count
+                    page_destinations.setdefault((path, page_num), page_offset)
+                    source_page = source_doc[page_num]
+                    for link in source_page.get_links():
+                        target_page = link.get("page", -1)
+                        # insert_pdf copies self-links, but drops links to other pages.
+                        if (link["kind"] == fitz.LINK_GOTO
+                                and 0 <= target_page < source_doc.page_count
+                                and target_page != page_num):
+                            pending_internal_links.append((path, page_offset, {
+                                "kind": fitz.LINK_GOTO,
+                                "page": target_page,
+                                "from": link["from"] * source_page.derotation_matrix,
+                                "to": link.get("to", fitz.Point(0, 0))
+                                      * source_doc[target_page].derotation_matrix,
+                                "zoom": link.get("zoom", 0),
+                            }))
                     final_doc.insert_pdf(
                         source_doc,
                         from_page=page_num,
@@ -2395,8 +2420,27 @@ class AppWorker(QRunnable):
                 source_doc.close()
 
             if self.is_running:
+                for path, output_page, link in pending_internal_links:
+                    target = page_destinations.get((path, link["page"]))
+                    if target is not None:
+                        final_doc[output_page].insert_link({**link, "page": target})
                 # ループ中に生成したTOCリストをPDFへ設定する。
                 toc_list = []
+                if not preserve_source_bookmarks:
+                    destinations = {}
+                    for entry in pending_toc_entries:
+                        destinations.setdefault(entry["order"], entry["page_index"])
+                    ordered_bookmarks = [
+                        {**bookmark, "order": order}
+                        for order, bookmark in enumerate(bookmarks or [])
+                    ]
+                    pending_toc_entries = [
+                        {**bookmark, "page_index": destinations[bookmark["order"]]}
+                        for bookmark in _filter_bookmark_tree(
+                            ordered_bookmarks, lambda b: b["order"] in destinations
+                        )
+                    ]
+                previous_level = 0
                 if pending_toc_entries:
                     for entry in pending_toc_entries:
                         page_index = entry.get("page_index")
@@ -2412,9 +2456,11 @@ class AppWorker(QRunnable):
                             "to": fitz.Point(top_left.x, top_left.y),
                             "zoom": 0,
                         }
+                        level = min(entry.get("level", 1), previous_level + 1)
+                        previous_level = level
                         toc_list.append(
                             [
-                                1,
+                                level,
                                 entry.get("title", translate("Worker", "無題")),
                                 page_index + 1,
                                 dest,
@@ -2558,6 +2604,8 @@ class AppWorker(QRunnable):
                 }
 
         finally:
+            if source_doc is not None and not source_doc.is_closed:
+                source_doc.close()
             final_doc.close()
             for temp_f in temp_files_to_clean:
                 _cleanup_converted_pdf_path(temp_f)
@@ -2767,7 +2815,8 @@ class AppWorker(QRunnable):
             return create_result("output_error", message)
 
         subfolders = sorted(
-            [path for path in input_root.iterdir() if path.is_dir()],
+            [path for path in input_root.iterdir()
+             if path.is_dir() and path.resolve() != output_root.resolve()],
             key=lambda path: path.name,
         )
 
@@ -2872,6 +2921,7 @@ class AppWorker(QRunnable):
                     str(output_pdf),
                     overwrite_existing=overwrite,
                     bookmarks=bookmarks,
+                    preserve_source_bookmarks=True,
                     show_outlines=show_bookmarks_on_open,
                     remove_pdf_annotations=remove_pdf_annotations,
                     disable_image_upscaling=disable_image_upscaling,
@@ -3900,7 +3950,7 @@ class AppWorker(QRunnable):
                             page = doc[page_num]
                             rotation = item.get("rotation", 0)
                             if rotation != 0:
-                                page.set_rotation(rotation)
+                                page.set_rotation((page.rotation + rotation) % 360)
                         else:
                             # Officeファイルの場合は最初のページ
                             page = doc[0]
@@ -4523,7 +4573,7 @@ class OfficePDFBinderApp(QMainWindow):
             self.settings_dir = os.path.dirname(self.settings_file)
             os.makedirs(self.settings_dir, exist_ok=True)
 
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser(interpolation=None)
         self.last_used_path = ""  # 最後に使用したパスを保持する変数
         self._load_settings()  # 起動時に設定を読み込む
         # アプリ起動時に設定をリセット（常に初期状態から始める）
@@ -4794,6 +4844,7 @@ class OfficePDFBinderApp(QMainWindow):
         self.BOOKMARK_INDEX_ROLE = Qt.UserRole + 1
         self.bookmark_tree = QTreeWidget()
         self.bookmark_tree.setHeaderHidden(True)
+        self.bookmark_tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.bookmark_tree.itemDoubleClicked.connect(self._navigate_to_bookmark)
         self.bookmark_tree.itemSelectionChanged.connect(
             self._update_bookmark_buttons_state
@@ -5358,16 +5409,17 @@ class OfficePDFBinderApp(QMainWindow):
             item = self.page_list_widget.item(i)
             item_data = item.data(Qt.UserRole)
             if item_data and "original_path" in item_data:
-                existing_paths.add(os.path.abspath(item_data["original_path"]))
+                existing_paths.add(os.path.normcase(os.path.abspath(item_data["original_path"])))
 
         new_paths = []
         duplicate_paths = []
         for path in file_paths:
-            abs_path = os.path.abspath(path)
+            abs_path = os.path.normcase(os.path.abspath(path))
             if abs_path in existing_paths:
                 duplicate_paths.append(os.path.basename(path))
             else:
                 new_paths.append(path)
+                existing_paths.add(abs_path)
 
         if duplicate_paths:
             msg = translate(
@@ -5477,11 +5529,12 @@ class OfficePDFBinderApp(QMainWindow):
             f"is_add_files_running={is_add_files_running}"
         )
 
-        if is_add_files_running:
+        if self.current_worker is not None or active_count > 0:
             _debug_log(
                 f"[DEBUG] _flush_ipc_pending_files: add_files 実行中のためキューに追加: {pending}"
             )
             self._pending_file_paths.extend(pending)
+            QTimer.singleShot(50, self._start_pending_file_addition)
             return
 
         # 最初のファイルのディレクトリをlast_used_pathに設定
@@ -5492,7 +5545,7 @@ class OfficePDFBinderApp(QMainWindow):
             file_paths=pending,
         )
 
-    def _add_files_from_paths(self, file_paths):
+    def _add_files_from_paths(self, file_paths, batch_complete=False):
         """コマンドライン引数からファイルパスを受け取って追加する"""
         _debug_log(f"[DEBUG] _add_files_from_paths: 呼び出し file_paths={file_paths}")
         if file_paths:
@@ -5511,6 +5564,12 @@ class OfficePDFBinderApp(QMainWindow):
                     f"[DEBUG] _add_files_from_paths: buffer extend at {now_str}, paths={valid_paths}"
                 )
                 self._ipc_pending_file_paths.extend(valid_paths)
+                if batch_complete:
+                    # The COM verb supplies one complete Explorer selection.
+                    self._ipc_batch_timer.stop()
+                    # A duplicate-file question must not delay the IPC ACK.
+                    QTimer.singleShot(0, self._flush_ipc_pending_files)
+                    return
                 # 最後の到着から500ms後にまとめて処理（到着ごとにリスタート）
                 self._ipc_batch_timer.stop()
                 self._ipc_batch_timer.start(500)
@@ -6699,6 +6758,8 @@ class OfficePDFBinderApp(QMainWindow):
         return {
             "page_items": page_items,
             "bookmarks": copy.deepcopy(self.bookmarks),
+            "page_number_settings": copy.deepcopy(self.page_number_settings),
+            "header_footer_settings": copy.deepcopy(self.header_footer_settings),
             "selection_rows": selection_rows,
             "last_used_path": self.last_used_path,
             "auto_bookmarks_enabled": self.auto_bookmarks_enabled,
@@ -6715,6 +6776,12 @@ class OfficePDFBinderApp(QMainWindow):
             self.add_item_to_view(copy.deepcopy(item_data))
 
         self.bookmarks = copy.deepcopy(snapshot.get("bookmarks", []))
+        self.page_number_settings = copy.deepcopy(snapshot.get(
+            "page_number_settings", self.page_number_settings
+        ))
+        self.header_footer_settings = copy.deepcopy(snapshot.get(
+            "header_footer_settings", self.header_footer_settings
+        ))
         self.last_used_path = snapshot.get("last_used_path", self.last_used_path)
         self.auto_bookmarks_enabled = snapshot.get(
             "auto_bookmarks_enabled", self.auto_bookmarks_enabled
@@ -6776,21 +6843,26 @@ class OfficePDFBinderApp(QMainWindow):
             and self.page_list_widget.item(row).data(Qt.UserRole)
         }
         before = len(self.bookmarks)
-        self.bookmarks = [
-            b
-            for b in self.bookmarks
-            if (os.path.abspath(b.get("path", "")), b.get("page_num", 0)) in valid_keys
-        ]
+        self.bookmarks = _filter_bookmark_tree(
+            self.bookmarks,
+            lambda b: (os.path.abspath(b.get("path", "")), b.get("page_num", 0)) in valid_keys,
+        )
         return before != len(self.bookmarks)
 
     def _sort_bookmarks_by_page(self):
         """現在のページ順に合わせてしおりを並び替える"""
         lookup = self._build_bookmark_lookup()
-        self.bookmarks.sort(
-            key=lambda b: lookup.get(
-                (os.path.abspath(b.get("path", "")), b.get("page_num", 0)), float("inf")
-            )
-        )
+        # Sort whole root subtrees; sorting individual nodes destroys parentage.
+        groups = []
+        for bookmark in self.bookmarks:
+            if not groups or bookmark.get("level", 1) == 1:
+                groups.append([])
+            groups[-1].append(bookmark)
+        groups.sort(key=lambda group: lookup.get(
+            (os.path.abspath(group[0].get("path", "")), group[0].get("page_num", 0)),
+            float("inf"),
+        ))
+        self.bookmarks = [bookmark for group in groups for bookmark in group]
 
     def _build_bookmark_lookup(self):
         """(path, page_num) -> 現在のページインデックス（パスは正規化して比較）"""
@@ -6811,6 +6883,8 @@ class OfficePDFBinderApp(QMainWindow):
         return (
             state_a.get("page_items", []) == state_b.get("page_items", [])
             and state_a.get("bookmarks", []) == state_b.get("bookmarks", [])
+            and state_a.get("page_number_settings") == state_b.get("page_number_settings")
+            and state_a.get("header_footer_settings") == state_b.get("header_footer_settings")
             and state_a.get("auto_bookmarks_enabled")
             == state_b.get("auto_bookmarks_enabled")
             and state_a.get("show_bookmarks_on_open")
@@ -6881,17 +6955,21 @@ class OfficePDFBinderApp(QMainWindow):
     def _load_bookmarks_from_pdf(self, file_path, pdf_bookmarks):
         """PDFファイルから読み込んだしおりを追加（既存のしおりと重複しないように）"""
         normalized_path = os.path.abspath(file_path)
+        # Source position identifies a node, even when title and destination match.
         existing_keys = {
-            (os.path.abspath(b.get("path", "")), b.get("page_num", 0))
-            for b in self.bookmarks
+            (os.path.abspath(b.get("path", "")), b.get("source_index"))
+            for b in self.bookmarks if "source_index" in b
         }
-
-        for bookmark in pdf_bookmarks:
-            bookmark_key = (normalized_path, bookmark.get("page_num", 0))
-            if bookmark_key not in existing_keys:
-                bookmark["path"] = file_path  # 元のパスを保持（正規化前）
-                self.bookmarks.append(bookmark)
-                existing_keys.add(bookmark_key)
+        if pdf_bookmarks:
+            self.bookmarks = [b for b in self.bookmarks if not (
+                b.get("auto") and os.path.abspath(b.get("path", "")) == normalized_path
+            )]
+        for index, bookmark in enumerate(pdf_bookmarks):
+            source_index = bookmark.get("source_index", index)
+            key = (normalized_path, source_index)
+            if key not in existing_keys:
+                self.bookmarks.append({**bookmark, "path": file_path, "source_index": source_index})
+                existing_keys.add(key)
 
         # しおりツリーを更新
         if hasattr(self, "bookmark_dock") and self.bookmark_dock.isVisible():
@@ -7143,19 +7221,15 @@ class OfficePDFBinderApp(QMainWindow):
     def _prepare_bookmarks_for_export(self, items_data):
         """現在のしおりをPDF出力用に整形"""
         self._prune_orphan_bookmarks()
-        export = []
-        for bookmark in self.bookmarks:
-            path = bookmark.get("path")
-            if not path:
-                continue
-            export.append(
-                {
-                    "title": bookmark.get("title", translate("MainWindow", "無題")),
-                    "path": path,
-                    "page_num": bookmark.get("page_num", 0),
-                }
-            )
-        return export
+        selected_keys = {
+            (os.path.abspath(item["original_path"]), item.get("page_num", 0))
+            for item in items_data
+        }
+        return _filter_bookmark_tree(
+            self.bookmarks,
+            lambda b: bool(b.get("path")) and
+            (os.path.abspath(b["path"]), b.get("page_num", 0)) in selected_keys,
+        )
 
     def _export_selected_as_pdf(self):
         """選択されたページをPDFとして書き出す"""
@@ -7189,26 +7263,7 @@ class OfficePDFBinderApp(QMainWindow):
         self.last_used_path = os.path.dirname(output_path)
 
         # しおりは選択範囲に含まれるものだけを抽出
-        bookmarks_export = []
-        for bookmark in self.bookmarks:
-            bookmark_path = bookmark.get("path")
-            bookmark_page = bookmark.get("page_num", 0)
-            # 選択されたアイテムの中に該当するものがあるかチェック
-            for item_data in items_data:
-                if (
-                    item_data.get("original_path") == bookmark_path
-                    and item_data.get("page_num") == bookmark_page
-                ):
-                    bookmarks_export.append(
-                        {
-                            "title": bookmark.get(
-                                "title", translate("MainWindow", "無題")
-                            ),
-                            "path": bookmark_path,
-                            "page_num": bookmark_page,
-                        }
-                    )
-                    break
+        bookmarks_export = self._prepare_bookmarks_for_export(items_data)
 
         # ヘッダー・フッター設定を使用
         header_footer_settings = (
@@ -7252,7 +7307,7 @@ class OfficePDFBinderApp(QMainWindow):
             translate("MainWindow", "選択ページをPDFとして書き出し"),
             items_data=items_data,
             output_path=output_path,
-            bookmarks=bookmarks_export if bookmarks_export else None,
+            bookmarks=bookmarks_export,
             show_outlines=False,  # 部分書き出しではしおりを自動表示しない
             remove_pdf_annotations=self.remove_pdf_annotations,
             disable_image_upscaling=self.disable_image_upscaling,
@@ -7343,6 +7398,7 @@ class OfficePDFBinderApp(QMainWindow):
                 self.page_number_settings["enabled"] = False
 
             self._save_settings()
+            self._record_history_change()
             # チェックボックスの状態を更新
 
     def _show_batch_merge_subfolders_dialog(self):
@@ -7413,9 +7469,9 @@ class OfficePDFBinderApp(QMainWindow):
         )
         items_data = [item.data(Qt.UserRole) for item in selected_items_sorted]
 
-        # 画像書き出しは PDF ページのみを対象とし、Office ファイルは対象外とする
-        pdf_items = [d for d in items_data if d and d.get("type") == "pdf"]
-        non_pdf_items = [d for d in items_data if d and d.get("type") != "pdf"]
+        # 画像書き出しは PDF・SVG ページを対象とし、Office ファイルは対象外とする
+        pdf_items = [d for d in items_data if d and d.get("type") in ("pdf", "svg")]
+        non_pdf_items = [d for d in items_data if d and d.get("type") not in ("pdf", "svg")]
 
         if not pdf_items:
             # すべて Office など PDF 以外の場合は何もしない
@@ -7424,7 +7480,7 @@ class OfficePDFBinderApp(QMainWindow):
                 translate("MainWindow", "書き出し"),
                 translate(
                     "MainWindow",
-                    "画像として書き出せるのはPDFページのみです。\nWord、Excel、PowerPointファイルは対象外です。",
+                    "画像として書き出せるのはPDF・SVGページのみです。\nWord、Excel、PowerPointファイルは対象外です。",
                 ),
             )
             return
@@ -7436,7 +7492,7 @@ class OfficePDFBinderApp(QMainWindow):
                 translate("MainWindow", "書き出し"),
                 translate(
                     "MainWindow",
-                    "PDF以外のファイルは除外し、PDFページだけを画像として書き出します。",
+                    "PDF・SVG以外のファイルは除外し、PDF・SVGページだけを画像として書き出します。",
                 ),
             )
 
@@ -7523,11 +7579,40 @@ class OfficePDFBinderApp(QMainWindow):
         """ワーカーのrun()が実際に終了した後で参照と終了待ちを整理する。"""
         is_current_worker = self.current_worker is worker
         if is_current_worker:
+            if getattr(worker, "task_name", None) == "merge_save":
+                self._clear_overwritten_input_state(getattr(worker, "saved_output_path", None))
             self.current_worker = None
         if is_current_worker and self.progress_dialog:
             self._close_progress_dialog()
+        if is_current_worker and getattr(worker, "task_name", None) == "add_files":
+            if not self._close_requested:
+                self._generate_bookmarks_from_list()
+                self._update_page_mode_actions_state()
+                self.update_status_bar()
+                self._record_history_change()
+            if not getattr(worker, "is_running", True):
+                self._pending_file_paths.clear()
+            elif not self._close_requested and self._pending_file_paths:
+                QTimer.singleShot(0, self._start_pending_file_addition)
         if self._close_requested:
             QTimer.singleShot(0, self._finish_pending_close)
+
+    def _start_pending_file_addition(self):
+        """Wait for QThreadPool to release the completed worker before dequeuing."""
+        if self._close_requested or not self._pending_file_paths:
+            return
+        if self.current_worker is not None or self.threadpool.activeThreadCount() > 0:
+            QTimer.singleShot(50, self._start_pending_file_addition)
+            return
+        queued_files = self._pending_file_paths
+        self._pending_file_paths = []
+        pending_files = self._check_duplicate_files(queued_files)
+        if pending_files:
+            self.last_used_path = os.path.dirname(pending_files[0])
+            self._run_task(
+                "add_files", translate("MainWindow", "ファイルを追加"),
+                file_paths=pending_files,
+            )
 
     def _finish_pending_close(self):
         """QThreadPoolからワーカーが外れたことを確認してウィンドウを閉じる。"""
@@ -7661,12 +7746,42 @@ class OfficePDFBinderApp(QMainWindow):
 
         return dialog, button_box, clicked_button, default_widget
 
+    def _clear_overwritten_input_state(self, output_path):
+        """Discard references to replaced source pages, including Undo/Redo states."""
+        if not output_path:
+            return False
+        output_key = os.path.normcase(os.path.realpath(output_path))
+        states = [self._create_state_snapshot(), *self.undo_stack, *self.redo_stack]
+        overwritten_input = any(
+            data.get("original_path")
+            and data.get("type") == "pdf"
+            and os.path.normcase(os.path.realpath(data["original_path"])) == output_key
+            for state in states for data in state.get("page_items", [])
+        )
+        if not overwritten_input:
+            return False
+        self.page_list_widget.clear()
+        self.thumbnail_cache.clear()
+        self.bookmarks.clear()
+        self._update_bookmark_tree()
+        self._reset_page_settings()
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+        self._record_history_change(initial=True)
+        self.update_status_bar()
+        self._update_page_mode_actions_state()
+        return True
+
     def on_worker_finished(self, task_name, title, message):
         _debug_log(
             f"[DEBUG] on_worker_finished: task_name={task_name}, "
             f"title={title}, message={message}, "
             f"activeThreadCount(before)={self.threadpool.activeThreadCount()}"
         )
+        cleared_overwritten_input = False
+        saved_output_path = getattr(self.current_worker, "saved_output_path", None)
+        if task_name == "merge_save":
+            cleared_overwritten_input = self._clear_overwritten_input_state(saved_output_path)
         if self.current_worker and not getattr(
             self.current_worker, "is_running", True
         ):
@@ -7682,34 +7797,12 @@ class OfficePDFBinderApp(QMainWindow):
             self._generate_bookmarks_from_list()
             self._update_page_mode_actions_state()
             self._record_history_change()
-            # キューに溜まったファイルパスがあれば処理
-            if self._pending_file_paths:
-                pending_files = self._pending_file_paths[:]
-                self._pending_file_paths.clear()
-                _debug_log(
-                    f"[DEBUG] on_worker_finished: "
-                    f"_pending_file_paths に溜まったファイルを検出。"
-                    f"count={len(pending_files)}, paths={pending_files}"
-                )
-                # 重複チェック
-                pending_files = self._check_duplicate_files(pending_files)
-                if pending_files:
-                    self.last_used_path = os.path.dirname(pending_files[0])
-                    _debug_log(
-                        "[DEBUG] on_worker_finished: "
-                        "キュー分の add_files タスクを再実行します。"
-                    )
-                    self._run_task(
-                        "add_files",
-                        translate("MainWindow", "ファイルを追加"),
-                        file_paths=pending_files,
-                    )
         self.update_status_bar()
         if task_name == "merge_save":
             # メッセージから保存先パスを抽出
             # メッセージ形式: "PDFを正常に保存しました:\n{output_path}"
-            output_path = None
-            if "\n" in message:
+            output_path = saved_output_path
+            if not output_path and "\n" in message:
                 lines = message.split("\n")
                 if len(lines) >= 2:
                     output_path = lines[1].strip()
@@ -7725,6 +7818,19 @@ class OfficePDFBinderApp(QMainWindow):
                         QDesktopServices.openUrl(QUrl.fromLocalFile(output_path))
                 except Exception as e:
                     print(f"PDFファイルを開けませんでした: {e}")
+
+            if cleared_overwritten_input:
+                self._show_copyable_message(
+                    title,
+                    translate(
+                        "MainWindow",
+                        "{message}\n\n入力PDFに上書きしたため、一覧と操作履歴をクリアしました。",
+                    ).format(message=message),
+                    icon=QMessageBox.Icon.Information,
+                    buttons=QDialogButtonBox.StandardButton.Ok,
+                    default_button=QDialogButtonBox.StandardButton.Ok,
+                )
+                return
 
             reply = self._show_copyable_message(
                 title,
@@ -7742,6 +7848,7 @@ class OfficePDFBinderApp(QMainWindow):
                 self.page_list_widget.clear()
                 self.thumbnail_cache.clear()
                 self.bookmarks.clear()
+                self._update_bookmark_tree()
                 # 設定をリセット（新しいプロジェクトを開始するため）
                 self._reset_page_settings()
                 self.update_status_bar()
@@ -8065,6 +8172,7 @@ class OfficePDFBinderApp(QMainWindow):
         self._prune_orphan_bookmarks()
         self._sort_bookmarks_by_page()
         self.bookmark_tree.clear()
+        parents = []
         for idx, bookmark in enumerate(self.bookmarks):
             untitled = translate("MainWindow", "無題")
             display_title = bookmark.get("title", untitled)
@@ -8080,7 +8188,14 @@ class OfficePDFBinderApp(QMainWindow):
             item.setToolTip(0, tooltip)
             item.setData(0, Qt.UserRole, bookmark)
             item.setData(0, self.BOOKMARK_INDEX_ROLE, idx)
-            self.bookmark_tree.addTopLevelItem(item)
+            level = max(1, bookmark.get("level", 1))
+            while len(parents) >= level:
+                parents.pop()
+            if parents:
+                parents[-1].addChild(item)
+            else:
+                self.bookmark_tree.addTopLevelItem(item)
+            parents.append(item)
         self.bookmark_tree.expandAll()
         self._update_bookmark_buttons_state()
 
@@ -8095,17 +8210,12 @@ class OfficePDFBinderApp(QMainWindow):
         """ブックマーク選択に応じて編集ボタンを更新（自動しおりも編集可能）"""
         if not hasattr(self, "bookmark_tree"):
             return
-        current_item = self.bookmark_tree.currentItem()
-        if not current_item:
-            enable_edit = False
-        else:
-            bookmark = current_item.data(0, Qt.UserRole)
-            # 自動しおりも編集可能（編集時に手動しおりに変換される）
-            enable_edit = bool(bookmark)
+        selected = self.bookmark_tree.selectedItems()
+        enable_edit = len(selected) == 1 and bool(selected[0].data(0, Qt.UserRole))
         if hasattr(self, "bookmark_rename_button"):
             self.bookmark_rename_button.setEnabled(enable_edit)
         if hasattr(self, "bookmark_delete_button"):
-            self.bookmark_delete_button.setEnabled(enable_edit)
+            self.bookmark_delete_button.setEnabled(bool(selected))
 
     def _show_page_context_menu(self, pos):
         """ページリストの右クリックメニュー"""
@@ -8194,9 +8304,10 @@ class OfficePDFBinderApp(QMainWindow):
 
     def _rename_selected_bookmark(self):
         """選択したしおりの名前を変更（自動しおりの場合は手動しおりに変換）"""
-        item = self.bookmark_tree.currentItem()
-        if not item:
+        selected = self.bookmark_tree.selectedItems()
+        if len(selected) != 1:
             return
+        item = selected[0]
         bookmark = item.data(0, Qt.UserRole)
         if not bookmark:
             return
@@ -8235,23 +8346,20 @@ class OfficePDFBinderApp(QMainWindow):
         self._record_history_change()
 
     def _delete_selected_bookmark(self):
-        """選択したしおりを削除（自動しおりも削除可能、次回自動生成時に再生成される）"""
-        item = self.bookmark_tree.currentItem()
-        if not item:
+        """選択したしおりをまとめて削除し、未選択の子孫は繰り上げて残す。"""
+        items = self.bookmark_tree.selectedItems()
+        if not items:
             return
-        bookmark = item.data(0, Qt.UserRole)
-        if not bookmark:
-            return
-        index = item.data(0, self.BOOKMARK_INDEX_ROLE)
-        if index is None or not (0 <= int(index) < len(self.bookmarks)):
+        indices = [item.data(0, self.BOOKMARK_INDEX_ROLE) for item in items]
+        if any(index is None or not (0 <= int(index) < len(self.bookmarks)) for index in indices):
             QMessageBox.warning(
                 self,
                 translate("MainWindow", "しおり"),
                 translate("MainWindow", "しおり情報を取得できませんでした。"),
             )
             return
-        index = int(index)
-        self.bookmarks.pop(index)
+        selected_ids = {id(self.bookmarks[int(index)]) for index in indices}
+        self.bookmarks = _filter_bookmark_tree(self.bookmarks, lambda b: id(b) not in selected_ids)
         self._update_bookmark_tree()
         self._record_history_change()
 
@@ -8478,10 +8586,21 @@ class OfficePDFBinderApp(QMainWindow):
 
 # --- 単一インスタンス制御用の簡易サーバ ---
 _INSTANCE_MODE_SUFFIX = "Portable" if _is_portable_mode() else "Installed"
-_SINGLE_INSTANCE_SERVER_NAME = f"OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
-_SINGLE_INSTANCE_MUTEX_NAME = (
-    f"Global\\OfficePDFBinder_{_INSTANCE_MODE_SUFFIX}_SingleInstance"
-)
+def _instance_server_name(mode, session_id):
+    return f"OfficePDFBinder_{mode}_SingleInstance_Session{session_id}"
+
+
+def _current_session_id():
+    if sys.platform != "win32":
+        return os.getuid()
+    session = ctypes.wintypes.DWORD()
+    if not ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
+        raise ctypes.WinError()
+    return session.value
+
+
+_SINGLE_INSTANCE_SERVER_NAME = _instance_server_name(_INSTANCE_MODE_SUFFIX, _current_session_id())
+_SINGLE_INSTANCE_MUTEX_NAME = "Local\\" + _SINGLE_INSTANCE_SERVER_NAME
 
 # デバッグログ用（ファイルにも出力）
 _DEBUG_LOG_PATH = os.path.join(os.path.expanduser("~"), "OfficePDFBinder_debug.log")
@@ -8598,7 +8717,7 @@ def _load_startup_window_geometry():
     if not os.path.exists(settings_file):
         return _default_window_geometry(), False
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     try:
         config.read(settings_file, encoding="utf-8")
         if not config.has_section("Window"):
@@ -8653,9 +8772,12 @@ def _send_files_to_running_instance(file_paths):
     try:
         # 改行区切りでパスを送信（UTF-8）
         payload = "\n".join(file_paths).encode("utf-8", errors="ignore")
-        local_socket.write(payload)
+        if local_socket.write(payload) != len(payload):
+            return False
         local_socket.flush()
-        local_socket.waitForBytesWritten(1000)  # 1秒待機
+        while local_socket.bytesToWrite() > 0:
+            if not local_socket.waitForBytesWritten(1000):
+                return False
         _debug_log("[DEBUG] _send_files_to_running_instance: 送信成功、終了します")
         _startup_log("child sent file paths to existing instance")
         return True
@@ -8674,52 +8796,69 @@ def _handle_new_connection(server, window):
 
     _debug_log("[DEBUG] _handle_new_connection: 接続を受け付けました")
 
+    # QLocalSocket is a byte stream: readyRead does not delimit a request.
+    # The sender disconnects after draining its output; decode only at EOF so
+    # fragmented paths (including UTF-8 characters) remain intact.
+    received = bytearray()
+    completed = False
+    receive_timeout = QTimer(local_socket)
+    receive_timeout.setSingleShot(True)
+    # Avoid PySide's dynamic registration of abort() on Nuitka socket wrappers.
+    receive_timeout.timeout.connect(lambda: local_socket.abort())
+    receive_timeout.start(30000)
+
     def _read_data():
-        """ソケットからデータを読み取る"""
+        received.extend(bytes(local_socket.readAll()))
+        if len(received) > 16 * 1024 * 1024 + 8:
+            local_socket.abort()
+            return
+        if len(received) >= 8 and received[:4] == b"OPB2":
+            length = int.from_bytes(received[4:8], "little")
+            if length > 16 * 1024 * 1024 or len(received) > length + 8:
+                local_socket.abort()
+            elif len(received) == length + 8:
+                _finish_request(framed=True)
+
+    def _finish_request(framed=False):
+        nonlocal completed
+        if completed:
+            return
+        completed = True
+        receive_timeout.stop()
+        received.extend(bytes(local_socket.readAll()))
         try:
-            if local_socket.bytesAvailable() > 0:
-                data = local_socket.readAll()
-                text = data.data().decode("utf-8", errors="ignore")
-
-                # 改行区切りでパスを復元
-                paths = [line.strip() for line in text.splitlines() if line.strip()]
-                if not paths:
-                    _debug_log("[DEBUG] _handle_new_connection: パスが空")
-                    local_socket.disconnectFromServer()
-                    return
-
-                _debug_log(
-                    f"[DEBUG] _handle_new_connection: {len(paths)}個のファイルパスを受信しました: {paths}"
-                )
-                # GUI スレッドでファイル追加を実行（シグナルを使用）
-                try:
+            if len(received) > 16 * 1024 * 1024 + 8:
+                return
+            if not framed and received[:4] == b"OPB2":
+                return  # Truncated framed request: never add a partial selection.
+            text = (received[8:] if framed else received).decode("utf-8")
+            paths = [line for line in text.splitlines() if line]
+            if paths and not window._close_requested:
+                window.setWindowState(window.windowState() & ~Qt.WindowMinimized)
+                window.show()
+                window.raise_()
+                window.activateWindow()
+                if framed:
+                    # QLocalServer and its sockets belong to the GUI thread.
+                    window._add_files_from_paths(paths, batch_complete=True)
+                    local_socket.write(b"OK\n")
+                    local_socket.flush()
+                else:
                     window.ipc_files_received.emit(paths)
-                except Exception as e:
-                    _debug_log(
-                        f"[DEBUG] _handle_new_connection: ipc_files_received.emit でエラー発生: {e}"
-                    )
-
+        except UnicodeError as exc:
+            _debug_log(f"[DEBUG] IPC: invalid UTF-8 request: {exc}")
+        finally:
+            if local_socket.state() == QLocalSocket.UnconnectedState:
+                local_socket.deleteLater()
+            else:
                 local_socket.disconnectFromServer()
-        except Exception as e:
-            _debug_log(f"[DEBUG] _handle_new_connection: データ読み取りエラー ({e})")
-            try:
-                local_socket.disconnectFromServer()
-            except Exception:
-                pass
 
-    # 接続時に既にデータが利用可能な場合をチェック
-    if local_socket.bytesAvailable() > 0:
-        _read_data()
-    else:
-        # データが利用可能になったら読み取る
-        local_socket.readyRead.connect(_read_data)
-
-    # エラー処理
-    local_socket.errorOccurred.connect(
-        lambda error: _debug_log(
-            f"[DEBUG] _handle_new_connection: ソケットエラー ({error})"
-        )
-    )
+    local_socket.readyRead.connect(_read_data)
+    local_socket.disconnected.connect(_finish_request)
+    local_socket.disconnected.connect(local_socket.deleteLater)
+    _read_data()
+    if local_socket.state() == QLocalSocket.UnconnectedState:
+        _finish_request()
 
 
 def _create_cli_parser():

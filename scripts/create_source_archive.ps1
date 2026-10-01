@@ -25,6 +25,8 @@ $RequiredFiles = @(
     "NOTICE.txt",
     "build.ps1",
     "scripts\build_installer.ps1",
+    "scripts\build_shell_bridge.ps1",
+    "scripts\build_sparse_package.ps1",
     "scripts\build_installer_only.ps1",
     "scripts\build_portable.ps1",
     "scripts\create_source_archive.ps1",
@@ -33,6 +35,7 @@ $RequiredFiles = @(
     "requirements-dev.txt",
     "pytest.ini",
     "TESTING.md",
+    "docs\release-notes\v1.5.0.md",
     "README.md",
     "README.ja.md",
     "README.html",
@@ -48,7 +51,7 @@ foreach ($RelativePath in $RequiredFiles) {
     [void]$SourceFiles.Add($RelativePath)
 }
 
-foreach ($Tree in @("tests", ".github", "tools", "docs\images")) {
+foreach ($Tree in @("tests", ".github", "tools", "docs\images", "native")) {
     $TreePath = Join-Path $ProjectRoot $Tree
     if (-not (Test-Path -LiteralPath $TreePath -PathType Container)) {
         throw "Source archive directory is missing: $Tree"

@@ -30,7 +30,14 @@ if (-not (Test-Path -LiteralPath $DistDir -PathType Container)) {
     exit 1
 }
 
-& python ".\scripts\convert_readme.py"
+# Use the same interpreter as the main build, even without conda activation.
+$PythonExe = if ($Env:CONDA_PREFIX -and
+    (Test-Path -LiteralPath (Join-Path $Env:CONDA_PREFIX 'python.exe'))) {
+    Join-Path $Env:CONDA_PREFIX 'python.exe'
+} else {
+    (Get-Command python).Source
+}
+& $PythonExe ".\scripts\convert_readme.py"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] README の HTML 変換に失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE

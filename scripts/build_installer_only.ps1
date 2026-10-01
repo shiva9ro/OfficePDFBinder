@@ -1,7 +1,13 @@
-# ========================================================
+﻿# ========================================================
 #  Office PDF Binder - installer rebuild script
 #  Reuses the existing OfficePDFBinder_Main.dist directory.
 # ========================================================
+
+$ProtocolMarker = "OfficePDFBinder_Main.dist\shell-bridge-protocol.txt"
+if (-not (Test-Path -LiteralPath $ProtocolMarker) -or
+    (Get-Content -LiteralPath $ProtocolMarker -Raw).Trim() -ne "OPB2-session-v1") {
+    throw "新しい一括受信に対応した本体が必要です。先に build.ps1 -Mode Fast を実行してください。"
+}
 
 $IssFile        = "packaging\setup_office_binder.iss"
 $SelfScriptName = "build_installer_only.ps1"
@@ -60,6 +66,10 @@ Write-Host " - source.zip 作成完了" -ForegroundColor Green
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host "[3/3] Inno Setup でインストーラーのみ作成..."
 Write-Host "========================================================"
+
+# Fail the build if the native shell receiver cannot be built.
+try { & (Join-Path $PSScriptRoot "build_shell_bridge.ps1") } catch { Write-Error $_; exit 1 }
+try { & (Join-Path $PSScriptRoot "build_sparse_package.ps1") } catch { Write-Error $_; exit 1 }
 
 $IsccExe  = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 $IsccArgs = @("/DMyAppVersion=$AppVersion", $IssFile)

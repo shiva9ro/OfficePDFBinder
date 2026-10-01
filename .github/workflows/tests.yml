@@ -46,5 +46,53 @@ jobs:
           -qm translations/OfficePDFBinder_en.qm
           -nounfinished
 
+      - name: Build native test dependencies (x64)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/build_shell_bridge.ps1 -Tests
+          ./scripts/build_shell_bridge.ps1 -IntegrationServer
+          ./scripts/build_sparse_package.ps1 -Architectures x64
+
+      - name: Require native test dependencies
+        shell: pwsh
+        run: |
+          $required = @(
+            'native/shell_bridge/out.build/shell_bridge_test.exe',
+            'native/shell_bridge/out.build/shell_bridge_integration.exe',
+            'native/shell_bridge/sparse.build/x64/OfficePDFBinder_Explorer.dll',
+            'native/shell_bridge/sparse.build/x64/OfficePDFBinder.ContextMenu.msix',
+            'native/shell_bridge/sparse.build/OfficePDFBinder.ContextMenu.cer'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Native test dependency is missing: $path"
+            }
+          }
+
       - name: Run tests
-        run: python -m pytest
+        run: python -m pytest --junitxml=tests/artifacts/pytest.xml
+
+      - name: Reject skipped shell integration tests
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$report = Get-Content -LiteralPath tests/artifacts/pytest.xml -Raw
+          $cases = @($report.SelectNodes('//testcase') | Where-Object {
+            $_.classname -match '(^|\.)(test_ipc_regressions|test_explorer_command|test_shell_registration)$'
+          })
+          if ($cases.Count -eq 0) { throw 'No shell integration tests were reported.' }
+          foreach ($case in $cases) {
+            if ($null -ne $case.SelectSingleNode('skipped')) {
+              throw "Shell integration test was skipped: $($case.classname).$($case.name)"
+            }
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-results
+          path: tests/artifacts/pytest.xml
+          if-no-files-found: warn

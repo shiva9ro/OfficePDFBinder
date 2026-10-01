@@ -16,7 +16,7 @@ Microsoft Officeで変換する場合、文書は読み取り専用で開き、�
 
 ## 1. 対応環境
 
-- Windows 10 / 11（64bit）
+- Windows 11（64bit）
 - Microsoft Office または LibreOffice（Word / Excel / PowerPoint ファイルを変換する場合）
 - インストーラー版の利用に、追加の Python やライブラリは不要
 
@@ -58,15 +58,17 @@ Microsoft Officeで変換する場合、文書は読み取り専用で開き、�
 GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。
 
 ```text
-OfficePDFBinder_Setup_1.4.1.exe
-OfficePDFBinder_Portable_1.4.1.zip
+OfficePDFBinder_Setup_1.5.0.exe
+OfficePDFBinder_Portable_1.5.0.zip
 ```
+
+インストーラーは現在のユーザー専用です。管理者として実行する必要はありません。旧版を全ユーザー向けにインストールしている場合は、その版を先にアンインストールしてください。Windows 11の最初の右クリックメニューに1項目を登録します。
 
 インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。
 
 ### インストール時の注意
 
-- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.1 をインストールしてください。
+- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.5.0 をインストールしてください。
 - 本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。
 - Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office または LibreOffice のどちらかが必要です。再現性は一般的にMicrosoft Officeの方が高く、LibreOfficeはMicrosoft Officeを利用できない環境で有効です。
 

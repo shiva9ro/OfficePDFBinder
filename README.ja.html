@@ -85,7 +85,7 @@
 <hr />
 <h2>1. 対応環境</h2>
 <ul>
-<li>Windows 10 / 11（64bit）</li>
+<li>Windows 11（64bit）</li>
 <li>Microsoft Office または LibreOffice（Word / Excel / PowerPoint ファイルを変換する場合）</li>
 <li>インストーラー版の利用に、追加の Python やライブラリは不要</li>
 </ul>
@@ -120,13 +120,14 @@
 <hr />
 <h2>3. ダウンロード</h2>
 <p>GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。</p>
-<pre><code class="language-text">OfficePDFBinder_Setup_1.4.1.exe
-OfficePDFBinder_Portable_1.4.1.zip
+<pre><code class="language-text">OfficePDFBinder_Setup_1.5.0.exe
+OfficePDFBinder_Portable_1.5.0.zip
 </code></pre>
+<p>インストーラーは現在のユーザー専用です。管理者として実行する必要はありません。旧版を全ユーザー向けにインストールしている場合は、その版を先にアンインストールしてください。Windows 11の最初の右クリックメニューに1項目を登録します。</p>
 <p>インストーラーで導入すると、アプリ本体、ライセンス文書、ユーザーマニュアル、ソースコード一式がインストール先に配置されます。</p>
 <h3>インストール時の注意</h3>
 <ul>
-<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.4.1 をインストールしてください。</li>
+<li>v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.5.0 をインストールしてください。</li>
 <li>本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。</li>
 <li>Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office または LibreOffice のどちらかが必要です。再現性は一般的にMicrosoft Officeの方が高く、LibreOfficeはMicrosoft Officeを利用できない環境で有効です。</li>
 </ul>
@@ -383,6 +384,11 @@ python -m pytest
 <li>検証用ファイルや一時ファイル</li>
 </ul>
 <p>配布用インストーラーは、GitHub Releases の Assets として公開します。</p>
+<hr />
+<h2>関連記事</h2>
+<ul>
+<li><a href="https://qiita.com/shiva9ro/items/65761cb802810c480423">Office文書とPDFをまとめて1つのPDFにするWindowsアプリ「Office PDF Binder」を作った（Qiita）</a></li>
+</ul>
 <hr />
 <h2>10. ライセンス</h2>
 <ul>

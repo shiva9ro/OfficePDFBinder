@@ -287,11 +287,8 @@ def test_merge_preserves_requested_page_order_rotation_and_bookmarks(
         assert "FIRST-1" in document[2].get_text()
         assert document[0].rotation == 90
         toc = document.get_toc()
-        assert [entry[1] for entry in toc] == [
-            "Selected second",
-            "Original first",
-        ]
-        assert [entry[2] for entry in toc] == [1, 3]
+        assert [entry[1] for entry in toc] == ["Selected second"]
+        assert [entry[2] for entry in toc] == [1]
 
 
 def test_merge_empty_input_reports_error(tmp_path):

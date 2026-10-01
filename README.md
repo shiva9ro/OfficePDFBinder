@@ -60,6 +60,8 @@ Supported extensions:
 
 ## 3. Installation and Portable Version
 
+The installer installs for the current user only; administrator privileges are not required. Remove an older all-users installation before installing this version. The Windows 11 context menu contains one entry.
+
 Download the latest installer or portable ZIP from GitHub Releases.
 
 The installer includes the application, this manual, license documents, and

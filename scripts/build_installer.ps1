@@ -158,6 +158,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] Nuitka ビルドに失敗しました。" -ForegroundColor Red
     exit $LASTEXITCODE
 }
+Set-Content -LiteralPath "$InternalName.dist\shell-bridge-protocol.txt" -Value "OPB2-session-v1" -Encoding ascii
 Write-Host " - ビルド完了" -ForegroundColor Green
 
 
@@ -175,6 +176,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host "[5/5] インストーラー作成..."
 Write-Host "========================================================"
+
+# Fail the build if the native shell receiver cannot be built.
+try { & (Join-Path $PSScriptRoot "build_shell_bridge.ps1") } catch { Write-Error $_; exit 1 }
+try { & (Join-Path $PSScriptRoot "build_sparse_package.ps1") } catch { Write-Error $_; exit 1 }
 
 $IsccExe = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 $IsccArgs = @("/DMyAppVersion=$AppVersion", $IssFile)
