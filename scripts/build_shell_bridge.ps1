@@ -11,6 +11,10 @@ $VsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer
 if (-not (Test-Path -LiteralPath $VsWhere)) { throw "Visual Studio C++ Build Tools が必要です。" }
 $VsPath = & $VsWhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if (-not $VsPath) { throw "MSVC x64 と Windows SDK をインストールしてください。" }
+# Each target starts from the caller's environment. Repeated VS initialization
+# otherwise grows PATH until the underlying command exceeds cmd.exe's limit.
+$OriginalEnvironment = [Environment]::GetEnvironmentVariables('Process')
+try {
 # Import the toolchain environment without constructing shell command strings.
 Import-Module (Join-Path $VsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
 Enter-VsDevShell -VsInstallPath $VsPath -SkipAutomaticLocation -Arch $Architecture -HostArch x64 | Out-Null
@@ -64,3 +68,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Shell bridge のビルドに失敗しました。" }
     Assert-NativeArchitecture (Join-Path $OutputPath $Exe) $Architecture
 } finally { Pop-Location }
+
+} finally {
+    foreach ($Name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
+        if (-not $OriginalEnvironment.Contains($Name)) {
+            [Environment]::SetEnvironmentVariable($Name, $null, 'Process')
+        }
+    }
+    foreach ($Entry in $OriginalEnvironment.GetEnumerator()) {
+        [Environment]::SetEnvironmentVariable($Entry.Key, $Entry.Value, 'Process')
+    }
+}
