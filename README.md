@@ -36,7 +36,7 @@ are added as files and converted to PDF when the combined PDF is saved.
 - Insert A4 portrait blank pages
 - Add files with a file dialog, drag and drop, or Windows Explorer
 - Reorder, delete, and rotate PDF pages
-- Reorder multiple selected pages by dragging them together
+- Reorder multiple selected pages by dragging them together. Hold for about 0.35 seconds until the cursor becomes an open hand, then drag
 - Detect duplicate files
 - Import existing PDF bookmarks
 - Create automatic bookmarks for each source file

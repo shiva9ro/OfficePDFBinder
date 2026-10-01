@@ -629,7 +629,7 @@ class DropListWidget(QListWidget):
         self._is_dragging = False  # ドラッグ中かどうか
         self._pressed_item_was_selected = False
         self._drag_candidate_items = []
-        self._drag_timer = QTimer()  # 長押し検出用タイマー
+        self._drag_timer = QTimer(self)  # 長押し検出用タイマー
         self._drag_timer.setSingleShot(True)
         self._drag_timer.timeout.connect(self._enable_drag_mode)
         self._drag_mode_enabled = False  # ドラッグモードが有効かどうか
@@ -771,6 +771,8 @@ class DropListWidget(QListWidget):
     def mousePressEvent(self, event: QMouseEvent):
         """マウスボタンが押されたときの処理"""
         if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_timer.stop()
+            self.viewport().unsetCursor()
             # ドラッグ開始位置を記録
             self._drag_start_position = event.position().toPoint()
             # 押されたアイテムを記録
@@ -793,12 +795,15 @@ class DropListWidget(QListWidget):
             )
             if item and not is_multi_select_operation:
                 # アイテム上の通常左クリックだけを長押しDD候補にする。
-                self._drag_timer.start(QApplication.startDragTime())
+                self._drag_timer.start(350)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """マウス移動時の処理（ドラッグ開始判定）"""
         if not (event.buttons() & Qt.MouseButton.LeftButton):
+            self._drag_timer.stop()
+            self._drag_mode_enabled = False
+            self.viewport().unsetCursor()
             super().mouseMoveEvent(event)
             return
 
@@ -834,11 +839,9 @@ class DropListWidget(QListWidget):
 
         # 長押し成立前に一定距離以上動いた場合は、通常の範囲選択として扱う。
         if hasattr(self, "_drag_start_position"):
-            move_distance = (
-                event.position().toPoint() - self._drag_start_position
-            ).manhattanLength()
-            # Qt標準のドラッグ開始距離を超えた場合は、選択操作とみなす。
-            if move_distance >= QApplication.startDragDistance():
+            delta = event.position().toPoint() - self._drag_start_position
+            # 直線距離で判定し、斜めの小さな手ぶれを許容する。
+            if delta.x() ** 2 + delta.y() ** 2 >= QApplication.startDragDistance() ** 2:
                 self._drag_timer.stop()
                 self._drag_mode_enabled = False
                 # 通常のマウス移動処理（範囲選択など）
@@ -851,12 +854,14 @@ class DropListWidget(QListWidget):
     def _enable_drag_mode(self):
         """長押しでドラッグモードを有効化"""
         # マウスボタンがまだ押されている場合のみ有効化
-        if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
+        if self._pressed_item and QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
             self._drag_mode_enabled = True
+            self.viewport().setCursor(Qt.CursorShape.OpenHandCursor)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """マウスボタンが離されたときの処理"""
         if event.button() == Qt.MouseButton.LeftButton:
+            self.viewport().unsetCursor()
             # タイマーを停止
             self._drag_timer.stop()
             self._drag_mode_enabled = False
@@ -867,6 +872,7 @@ class DropListWidget(QListWidget):
 
     def startDrag(self, supportedActions):
         """複数選択されたアイテムのドラッグを開始（オーバーライド）"""
+        self.viewport().unsetCursor()
         # 選択されたアイテムを取得
         selected_items = self.selectedItems()
         if not selected_items:

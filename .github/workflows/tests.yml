@@ -46,13 +46,13 @@ jobs:
           -qm translations/OfficePDFBinder_en.qm
           -nounfinished
 
-      - name: Build native test dependencies (x64)
+      - name: Build native test dependencies (x64 and ARM64)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           ./scripts/build_shell_bridge.ps1 -Tests
           ./scripts/build_shell_bridge.ps1 -IntegrationServer
-          ./scripts/build_sparse_package.ps1 -Architectures x64
+          ./scripts/build_sparse_package.ps1 -Architectures x64,arm64
 
       - name: Require native test dependencies
         shell: pwsh
@@ -62,6 +62,8 @@ jobs:
             'native/shell_bridge/out.build/shell_bridge_integration.exe',
             'native/shell_bridge/sparse.build/x64/OfficePDFBinder_Explorer.dll',
             'native/shell_bridge/sparse.build/x64/OfficePDFBinder.ContextMenu.msix',
+            'native/shell_bridge/sparse.build/arm64/OfficePDFBinder_Explorer.dll',
+            'native/shell_bridge/sparse.build/arm64/OfficePDFBinder.ContextMenu.msix',
             'native/shell_bridge/sparse.build/OfficePDFBinder.ContextMenu.cer'
           )
           foreach ($path in $required) {

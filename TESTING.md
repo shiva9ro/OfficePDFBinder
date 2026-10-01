@@ -213,7 +213,8 @@ COMヘルパーのビルド・通信仕様・実機確認項目は
 COMテストはランダムなテスト用CLSIDを一時登録し、終了時に削除します。
 
 GitHub ActionsではWindows x64用のテストドライバー、COMテストサーバー、
-Explorer DLLとSparse Packageを作成してから、全pytestテストを実行します。
+Explorer DLLとSparse Package（x64・ARM64）を作成してから、全pytestテストを実行します。
+作成したEXE/DLLのPEヘッダーを検査し、指定したCPU形式と異なる場合はビルドを失敗させます。
 アプリ本体のNuitkaビルドは実行しません。署名には使い捨てのランナー内で
 作成する自己署名証明書を使い、配布用の秘密鍵やGitHub Secretsは使いません。
 パッケージの実インストールは行わず、登録・解除は模擬処理で検証します。

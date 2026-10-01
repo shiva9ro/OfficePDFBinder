@@ -4,42 +4,42 @@
 <context>
     <name>AboutDialog</name>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7994"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8000"/>
         <source>アプリ情報 - {app}</source>
         <translation>About - {app}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8012"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8018"/>
         <source>バージョン: {version}</source>
         <translation>Version: {version}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8021"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8027"/>
         <source>PDFとOffice文書を1つのPDFに結合し、ページを整理するツールです。&lt;br&gt;Copyright (C) 2026 Takeshi Kashiwagi</source>
         <translation>Combine PDF and Office documents into a single PDF and organize its pages.&lt;br&gt;Copyright (C) 2026 Takeshi Kashiwagi</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8039"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8045"/>
         <source>本ソフトウェアは&lt;b&gt;GNU AFFERO GENERAL PUBLIC LICENSE v3.0 (AGPL-3.0)&lt;/b&gt;の下で提供されます。&lt;br&gt;&lt;br&gt;ライセンス条項、サードパーティライセンス、ソースコードは以下から確認できます。</source>
         <translation>This software is provided under the &lt;b&gt;GNU AFFERO GENERAL PUBLIC LICENSE v3.0 (AGPL-3.0)&lt;/b&gt;.&lt;br&gt;&lt;br&gt;Use the buttons below to view the license terms, third-party notices, and source code.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8056"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8062"/>
         <source>使用許諾契約書（AGPL-3.0）を表示</source>
         <translation>View License (AGPL-3.0)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8062"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8068"/>
         <source>サードパーティライセンスを表示</source>
         <translation>View Third-Party Notices</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8067"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8073"/>
         <source>ソースコードの場所を開く</source>
         <translation>Open Source Code Location</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8078"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8084"/>
         <source>閉じる</source>
         <translation>Close</translation>
     </message>
@@ -47,58 +47,58 @@
 <context>
     <name>BatchDialog</name>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4022"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4028"/>
         <source>サブフォルダごとにPDF作成</source>
         <translation>Create PDFs by Subfolder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4032"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4038"/>
         <source>入力親フォルダ:</source>
         <translation>Input parent folder:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4044"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4050"/>
         <source>出力フォルダ:</source>
         <translation>Output folder:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4036"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4048"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4042"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4054"/>
         <source>参照...</source>
         <translation>Browse...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4056"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4062"/>
         <source>各サブフォルダ内のファイルはファイル名順に結合されます。</source>
         <translation>Files in each subfolder are combined in filename order.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4066"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4072"/>
         <source>エラーが発生しても次のフォルダを処理する</source>
         <translation>Continue with the next folder when an error occurs</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4072"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4078"/>
         <source>既存PDFを上書きする</source>
         <translation>Overwrite existing PDFs</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4082"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4088"/>
         <source>開始</source>
         <translation>Start</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4085"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4091"/>
         <source>キャンセル</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4094"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4100"/>
         <source>入力親フォルダを選択</source>
         <translation>Select Input Parent Folder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4116"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4122"/>
         <source>出力フォルダを選択</source>
         <translation>Select Output Folder</translation>
     </message>
@@ -106,109 +106,109 @@
 <context>
     <name>HeaderFooterDialog</name>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4137"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4143"/>
         <source>ヘッダーとフッターの設定</source>
         <translation>Header and Footer Settings</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4146"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4152"/>
         <source>ヘッダーを追加</source>
         <translation>Add header</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4157"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4229"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4163"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4235"/>
         <source>左:</source>
         <translation>Left:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4160"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4232"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4166"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4238"/>
         <source>例: ○○市役所</source>
         <translation>Example: XX City Hall</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4167"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4239"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4173"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4245"/>
         <source>中央:</source>
         <translation>Center:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4170"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4242"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4176"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4248"/>
         <source>例: 文書名</source>
         <translation>Example: Document title</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4177"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4249"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4183"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4255"/>
         <source>右:</source>
         <translation>Right:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4180"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4252"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4186"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4258"/>
         <source>例: 令和○年○月○日</source>
         <translation>Example: June 19, 2026</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4187"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4259"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4193"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4265"/>
         <source>右側に現在の日付を自動挿入</source>
         <translation>Insert the current date on the right</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4195"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4267"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4201"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4273"/>
         <source>ページ番号を自動挿入:</source>
         <translation>Insert page numbers:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4199"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4271"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4205"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4277"/>
         <source>なし</source>
         <translation>None</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4200"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4272"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4206"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4278"/>
         <source>左</source>
         <translation>Left</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4201"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4273"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4207"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4279"/>
         <source>中央</source>
         <translation>Center</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4202"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4274"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4208"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4280"/>
         <source>右</source>
         <translation>Right</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4218"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4224"/>
         <source>フッターを追加</source>
         <translation>Add footer</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4289"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4295"/>
         <source>フォントサイズ:</source>
         <translation>Font size:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4301"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4307"/>
         <source>ページ番号の設定</source>
         <translation>Page Number Settings</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4307"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4313"/>
         <source>表示形式:</source>
         <translation>Format:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4316"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4322"/>
         <source>開始番号:</source>
         <translation>Start number:</translation>
     </message>
@@ -216,70 +216,70 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4500"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4506"/>
         <source>Office PDF Binder（ポータブル版）</source>
         <translation>Office PDF Binder (Portable)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4839"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8267"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8289"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8318"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8337"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8357"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8422"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4845"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8273"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8295"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8324"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8343"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8363"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8428"/>
         <source>しおり</source>
         <translation>Bookmarks</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4855"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4861"/>
         <source>追加</source>
         <translation>Add</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4857"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4863"/>
         <source>選択したページにしおりを追加</source>
         <translation>Add a bookmark to the selected page</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4862"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4868"/>
         <source>名前を変更</source>
         <translation>Rename</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4864"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4870"/>
         <source>選択したしおりの名前を変更</source>
         <translation>Rename the selected bookmark</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4869"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4875"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4871"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4877"/>
         <source>選択したしおりを削除</source>
         <translation>Delete the selected bookmark</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4879"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4885"/>
         <source>自動しおりは設定メニューで切り替えられます。自動しおりを編集すると、手動しおりに変わります。</source>
         <translation>Automatic bookmarks can be toggled in the Settings menu. Editing an automatic bookmark converts it to a manual bookmark.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4901"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4907"/>
         <source>ファイル
 追加</source>
         <translation>Add
 Files</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4904"/>
-        <location filename="../OfficePDFBinder_Main.py" line="5030"/>
-        <location filename="../OfficePDFBinder_Main.py" line="5468"/>
-        <location filename="../OfficePDFBinder_Main.py" line="5482"/>
-        <location filename="../OfficePDFBinder_Main.py" line="5544"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7613"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4910"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5036"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5474"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5488"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5550"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7619"/>
         <source>ファイルを追加</source>
         <translation>Add Files</translation>
     </message>
@@ -290,7 +290,7 @@ Files</translation>
 Selected</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4913"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4919"/>
         <source>選択項目を削除 (Delete)</source>
         <translation>Delete selected items (Delete)</translation>
     </message>
@@ -301,7 +301,7 @@ Selected</translation>
 Left</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4925"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4931"/>
         <source>選択したPDFページを左へ90度回転します。複数のページもまとめて回転できます。</source>
         <translation>Rotate the selected PDF pages 90 degrees counterclockwise.</translation>
     </message>
@@ -312,7 +312,7 @@ Left</translation>
 Right</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4938"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4944"/>
         <source>選択したPDFページを右へ90度回転します。複数のページもまとめて回転できます。</source>
         <translation>Rotate the selected PDF pages 90 degrees clockwise.</translation>
     </message>
@@ -323,31 +323,31 @@ Right</translation>
 Top</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4951"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4957"/>
         <source>選択したページを一番上へ移動します。</source>
         <translation>Move the selected pages to the top.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4957"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4963"/>
         <source>上へ
 移動</source>
         <translation>Move
 Up</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4961"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4967"/>
         <source>選択したページを1つ上へ移動します。</source>
         <translation>Move the selected pages up one position.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4967"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4973"/>
         <source>下へ
 移動</source>
         <translation>Move
 Down</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4971"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4977"/>
         <source>選択したページを1つ下へ移動します。</source>
         <translation>Move the selected pages down one position.</translation>
     </message>
@@ -358,7 +358,7 @@ Down</translation>
 Bottom</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4981"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4987"/>
         <source>選択したページを一番下へ移動します。</source>
         <translation>Move the selected pages to the bottom.</translation>
     </message>
@@ -369,94 +369,94 @@ Bottom</translation>
 Save PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4992"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4998"/>
         <source>ファイルとページを1つのPDFに結合して保存</source>
         <translation>Combine files and pages into a single PDF and save it</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4996"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5002"/>
         <source>アプリ情報(&amp;I)</source>
         <translation>About (&amp;A)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4998"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5004"/>
         <source>このアプリケーションの情報を表示</source>
         <translation>Show information about this application</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5003"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5009"/>
         <source>マニュアル(&amp;M)</source>
         <translation>Manual (&amp;M)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5006"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5012"/>
         <source>ユーザーマニュアルを既定のブラウザーで開く</source>
         <translation>Open the user manual in your default browser</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5012"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5018"/>
         <source>しおり(&amp;B)</source>
         <translation>Bookmarks (&amp;B)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5020"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5026"/>
         <source>新規(&amp;N)</source>
         <translation>New (&amp;N)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5022"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5028"/>
         <source>新しい作業を開始</source>
         <translation>Start a new session</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5026"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5032"/>
         <source>ファイルを追加(&amp;O)...</source>
         <translation>Add Files (&amp;O)...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5034"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5040"/>
         <source>空白ページを挿入</source>
         <translation>Insert Blank Page</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5037"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5043"/>
         <source>A4縦の空白ページを追加</source>
         <translation>Add an A4 portrait blank page</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5450"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5456"/>
         <source>対応ファイル (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.heic *.heif *.hif *.svg);;すべてのファイル (*)</source>
         <translation>Supported files (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff *.heic *.heif *.hif *.svg);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5605"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5611"/>
         <source>空白ページ {number}</source>
         <translation>Blank Page {number}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6927"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7053"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7081"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6933"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7059"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7087"/>
         <source>空白ページ</source>
         <translation>Blank Page</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6184"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6190"/>
         <source>空白</source>
         <translation>Blank</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5222"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5228"/>
         <source>サブフォルダごとにPDF作成...</source>
         <translation>Create PDFs by Subfolder...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7441"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7447"/>
         <source>サブフォルダごとにPDF作成</source>
         <translation>Create PDFs by Subfolder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5225"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5231"/>
         <source>親フォルダ直下のサブフォルダごとにPDFを作成</source>
         <translation>Create one PDF for each subfolder directly under the parent folder</translation>
     </message>
@@ -465,212 +465,212 @@ Save PDF</translation>
         <translation type="vanished">Supported files (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm *.png *.jpg *.jpeg *.bmp);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5042"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5048"/>
         <source>名前を付けて保存(&amp;S)...</source>
         <translation>Save As (&amp;S)...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5047"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5053"/>
         <source>PDFに結合して名前を付けて保存</source>
         <translation>Combine into a PDF and save it with a new name</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5052"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5058"/>
         <source>選択ページをPDFとして書き出し(&amp;E)...</source>
         <translation>Export Selected Pages as PDF (&amp;E)...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5055"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5061"/>
         <source>選択したページをPDFファイルとして書き出す</source>
         <translation>Export the selected pages as a PDF file</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5060"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5066"/>
         <source>選択ページを画像として書き出し(&amp;I)...</source>
         <translation>Export Selected Pages as Images (&amp;I)...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5063"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5069"/>
         <source>選択したページをJPEG画像として書き出す</source>
         <translation>Export the selected pages as JPEG images</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5069"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5075"/>
         <source>終了(&amp;X)</source>
         <translation>Exit (&amp;X)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5071"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5077"/>
         <source>アプリケーションを終了</source>
         <translation>Exit the application</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5075"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5081"/>
         <source>元に戻す(&amp;U)</source>
         <translation>Undo (&amp;U)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5077"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5083"/>
         <source>直前の操作を元に戻す</source>
         <translation>Undo the last action</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5081"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5087"/>
         <source>やり直す(&amp;R)</source>
         <translation>Redo (&amp;R)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5083"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5089"/>
         <source>元に戻した操作をやり直す</source>
         <translation>Redo the last undone action</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5088"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5094"/>
         <source>すべて選択(&amp;A)</source>
         <translation>Select All (&amp;A)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5091"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5097"/>
         <source>すべての項目を選択</source>
         <translation>Select all items</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5095"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5101"/>
         <source>拡大(&amp;I)</source>
         <translation>Zoom In (&amp;I)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5097"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5103"/>
         <source>表示を拡大 (Ctrl++)</source>
         <translation>Zoom in (Ctrl++)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5100"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5106"/>
         <source>縮小(&amp;O)</source>
         <translation>Zoom Out (&amp;O)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5102"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5108"/>
         <source>表示を縮小 (Ctrl+-)</source>
         <translation>Zoom out (Ctrl+-)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5106"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5112"/>
         <source>ウィンドウに合わせる(&amp;F)</source>
         <translation>Fit to Window (&amp;F)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5110"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5116"/>
         <source>ウィンドウに合わせる (Ctrl+0)</source>
         <translation>Fit to window (Ctrl+0)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5116"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5122"/>
         <source>ファイルごとにしおりを自動作成</source>
         <translation>Create Bookmarks for Each File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5121"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5127"/>
         <source>各ファイルの先頭ページにしおりを自動作成</source>
         <translation>Create a bookmark on the first page of each file</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5126"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5132"/>
         <source>保存したPDFを開くときにしおりを表示</source>
         <translation>Show Bookmarks When Opening Saved PDFs</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5131"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5137"/>
         <source>保存したPDFを開くときにしおりパネルを表示</source>
         <translation>Show the bookmarks panel when opening a saved PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5138"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5144"/>
         <source>PDFのコメント・図形を除去</source>
         <translation>Remove PDF Comments and Markups</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5143"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5149"/>
         <source>PDF注釈として保持されているコメント・図形を保存時に出力しない</source>
         <translation>Do not include comments and markups stored as PDF annotations when saving</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5153"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5159"/>
         <source>小さい画像を拡大しない</source>
         <translation>Do Not Enlarge Small Images</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5158"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5164"/>
         <source>画像をPDFページにするとき、小さい画像は元の大きさを超えて拡大しない</source>
         <translation>When converting images to PDF pages, do not enlarge small images beyond their original size</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5168"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5174"/>
         <source>Wordのコメント・変更履歴とExcelのコメントをPDFに出さない</source>
         <translation>Suppress Word Comments and Tracked Changes, and Excel Comments in PDFs</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5177"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5183"/>
         <source>Wordのコメント・変更履歴とExcelのコメントをPDFに出さない。PowerPointは通常どおりPDF化します。</source>
         <translation>Do not include Word comments and tracked changes or Excel comments in PDFs. PowerPoint is converted normally.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5210"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5216"/>
         <source>ヘッダーとフッター(&amp;H)...</source>
         <translation>Header and Footer (&amp;H)...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5214"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5220"/>
         <source>ヘッダーとフッターを設定 (Ctrl+H)</source>
         <translation>Configure headers and footers (Ctrl+H)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5232"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5238"/>
         <source>メインツールバー</source>
         <translation>Main Toolbar</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5281"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5287"/>
         <source>ファイル(&amp;F)</source>
         <translation>File (&amp;F)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5293"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5299"/>
         <source>編集(&amp;E)</source>
         <translation>Edit (&amp;E)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5302"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5308"/>
         <source>ページを整理(&amp;P)</source>
         <translation>Organize Pages (&amp;P)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5314"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5320"/>
         <source>表示(&amp;V)</source>
         <translation>View (&amp;V)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5322"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5328"/>
         <source>設定(&amp;S)</source>
         <translation>Settings (&amp;S)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5332"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5338"/>
         <source>Office変換エンジン</source>
         <translation>Office Conversion Engine</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5378"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5384"/>
         <source>処理中</source>
         <translation>Processing</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5379"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5385"/>
         <source>別の処理を実行中です。</source>
         <translation>Another operation is already in progress.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5425"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5431"/>
         <source>次のファイルは既に追加されています:
 
 </source>
@@ -679,7 +679,7 @@ Save PDF</translation>
 </translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5429"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5435"/>
         <source>
 
 新しいファイルを{count}個追加します。</source>
@@ -688,8 +688,8 @@ Save PDF</translation>
 Add {count} new file(s).</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5434"/>
-        <location filename="../OfficePDFBinder_Main.py" line="5443"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5440"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5449"/>
         <source>重複ファイル</source>
         <translation>Duplicate Files</translation>
     </message>
@@ -698,139 +698,139 @@ Add {count} new file(s).</translation>
         <translation type="vanished">Supported Files (*.pdf *.docx *.doc *.docm *.xlsx *.xls *.xlsm *.pptx *.ppt *.pptm);;All Files (*)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5456"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5462"/>
         <source>ファイルを選択</source>
         <translation>Select Files</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6505"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6511"/>
         <source>新規作成</source>
         <translation>New</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6506"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6512"/>
         <source>現在の一覧をクリアして新しく開始しますか？</source>
         <translation>Clear the current list and start a new session?</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6532"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6538"/>
         <source>削除の確認</source>
         <translation>Confirm Deletion</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6533"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6539"/>
         <source>選択した項目を{count}個削除しますか？</source>
         <translation>Delete {count} selected item(s)?</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6586"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8100"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8131"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6592"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8106"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8137"/>
         <source>ファイルが見つかりません</source>
         <translation>File Not Found</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6587"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6593"/>
         <source>ファイルが見つかりません:
 {path}</source>
         <translation>File not found:
 {path}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6594"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8109"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8140"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6600"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8115"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8146"/>
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6595"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8110"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6601"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8116"/>
         <source>ファイルを開けませんでした:
 {error}</source>
         <translation>Could not open the file:
 {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6607"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6613"/>
         <source>ユーザーマニュアル</source>
         <translation>User Manual</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6608"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6614"/>
         <source>ユーザーマニュアルが見つかりません。
 {path}</source>
         <translation>User manual not found.
 {path}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="6925"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8177"/>
+        <location filename="../OfficePDFBinder_Main.py" line="6931"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8183"/>
         <source>無題</source>
         <translation>Untitled</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7147"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7153"/>
         <source>保存できません</source>
         <translation>Cannot Save</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7148"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7154"/>
         <source>結合するファイルまたはページがありません。</source>
         <translation>There are no files or pages to combine.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7191"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7197"/>
         <source>名前を付けて保存</source>
         <translation>Save As</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7193"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7257"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7199"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7263"/>
         <source>PDFファイル (*.pdf)</source>
         <translation>PDF Files (*.pdf)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7208"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7214"/>
         <source>PDFを結合して保存</source>
         <translation>Combine and Save PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7240"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7461"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7480"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7492"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7246"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7467"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7486"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7498"/>
         <source>書き出し</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7241"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7462"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7247"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7468"/>
         <source>書き出すページを選択してください。</source>
         <translation>Select the pages to export.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7255"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7261"/>
         <source>選択ページをPDFとして保存</source>
         <translation>Save Selected Pages as PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7307"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7313"/>
         <source>選択ページをPDFとして書き出し</source>
         <translation>Export Selected Pages as PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7506"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7512"/>
         <source>画像書き出し設定</source>
         <translation>Image Export Settings</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7507"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7513"/>
         <source>解像度:</source>
         <translation>Resolution:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7518"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7524"/>
         <source>画像の保存先フォルダーを選択</source>
         <translation>Select Image Output Folder</translation>
     </message>
@@ -845,17 +845,17 @@ Word, Excel, and PowerPoint files are not supported.</translation>
         <translation type="vanished">Non-PDF files will be skipped. Only PDF pages will be exported as images.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7528"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7534"/>
         <source>選択ページを画像として書き出し</source>
         <translation>Export Selected Pages as Images</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7536"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7542"/>
         <source>{operation}...</source>
         <translation>{operation}...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7539"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7545"/>
         <source>準備しています...</source>
         <translation>Preparing...</translation>
     </message>
@@ -864,13 +864,13 @@ Word, Excel, and PowerPoint files are not supported.</translation>
         <translation type="vanished">Cancel</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7565"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7978"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7571"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7984"/>
         <source>処理を中止しています...</source>
         <translation>Canceling...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7837"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7843"/>
         <source>{message}
 
 一覧をクリアしますか？</source>
@@ -879,150 +879,150 @@ Word, Excel, and PowerPoint files are not supported.</translation>
 Clear the list?</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7884"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7890"/>
         <source>ファイルを追加してください</source>
         <translation>Add files to begin</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7907"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7913"/>
         <source>PDFページ: {count}</source>
         <translation>PDF pages: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7914"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7920"/>
         <source>Word: {count}</source>
         <translation>Word: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7921"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7927"/>
         <source>Excel: {count}</source>
         <translation>Excel: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7928"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7934"/>
         <source>PowerPoint: {count}</source>
         <translation>PowerPoint: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7935"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7941"/>
         <source>画像: {count}</source>
         <translation>Images: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5348"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5354"/>
         <source>一括処理</source>
         <translation>Batch</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4909"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4915"/>
         <source>選択
 削除</source>
         <translation>Delete
 Selected</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4921"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4927"/>
         <source>左90°
 回転</source>
         <translation>Rotate
 Left 90°</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4934"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4940"/>
         <source>右90°
 回転</source>
         <translation>Rotate
 Right 90°</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4947"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4953"/>
         <source>一番上
 移動</source>
         <translation>Move
 to Top</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4977"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4983"/>
         <source>一番下
 移動</source>
         <translation>Move
 to Bottom</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4988"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4994"/>
         <source>結合
 保存</source>
         <translation>Merge
 Save</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5190"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5196"/>
         <source>自動</source>
         <translation>Auto</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5192"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5198"/>
         <source>Microsoft Officeを優先</source>
         <translation>Prefer Microsoft Office</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="5196"/>
+        <location filename="../OfficePDFBinder_Main.py" line="5202"/>
         <source>LibreOfficeを優先</source>
         <translation>Prefer LibreOffice</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7417"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7424"/>
-        <location filename="../OfficePDFBinder_Main.py" line="7431"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7423"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7430"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7437"/>
         <source>入力エラー</source>
         <translation>Input Error</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7418"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7424"/>
         <source>入力親フォルダを指定してください。</source>
         <translation>Specify the input parent folder.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7425"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7431"/>
         <source>出力フォルダを指定してください。</source>
         <translation>Specify the output folder.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7432"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7438"/>
         <source>入力親フォルダが存在しません:
 {path}</source>
         <translation>The input parent folder does not exist:
 {path}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7481"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7487"/>
         <source>画像として書き出せるのはPDF・SVGページのみです。
 Word、Excel、PowerPointファイルは対象外です。</source>
         <translation>Only PDF and SVG pages can be exported as images.
 Word, Excel, and PowerPoint files are not supported.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7493"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7499"/>
         <source>PDF・SVG以外のファイルは除外し、PDF・SVGページだけを画像として書き出します。</source>
         <translation>Files other than PDF and SVG will be excluded. Only PDF and SVG pages will be exported as images.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7546"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7552"/>
         <source>中止</source>
         <translation>Stop</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7560"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7566"/>
         <source>現在のOffice変換が終わり次第、中止します...</source>
         <translation>The current Office conversion will finish before stopping...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7714"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7720"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7825"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7831"/>
         <source>{message}
 
 入力PDFに上書きしたため、一覧と操作履歴をクリアしました。</source>
@@ -1031,88 +1031,88 @@ Word, Excel, and PowerPoint files are not supported.</translation>
 The list and undo/redo history have been cleared because an input PDF was overwritten.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7944"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7950"/>
         <source>選択中: {count}件</source>
         <translation>Selected: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7966"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7972"/>
         <source>終了の確認</source>
         <translation>Confirm Exit</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="7967"/>
+        <location filename="../OfficePDFBinder_Main.py" line="7973"/>
         <source>処理を実行中です。終了しますか？</source>
         <translation>An operation is in progress. Exit anyway?</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8101"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8132"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8107"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8138"/>
         <source>&apos;{filename}&apos;が見つかりません。
 インストールフォルダーを確認してください。</source>
         <translation>&apos;{filename}&apos; was not found.
 Check the installation folder.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8141"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8147"/>
         <source>フォルダーを開けませんでした:
 {error}</source>
         <translation>Could not open the folder:
 {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8180"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8186"/>
         <source>（自動）</source>
         <translation> (Automatic)</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8247"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8253"/>
         <source>選択ページにしおりを追加</source>
         <translation>Add Bookmark to Selected Page</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8268"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8274"/>
         <source>ページを選択してください。</source>
         <translation>Select a page.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8278"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8284"/>
         <source>しおりを追加</source>
         <translation>Add Bookmark</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8279"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8285"/>
         <source>しおり名:</source>
         <translation>Bookmark name:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8290"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8296"/>
         <source>しおり名を入力してください。</source>
         <translation>Enter a bookmark name.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8319"/>
-        <location filename="../OfficePDFBinder_Main.py" line="8358"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8325"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8364"/>
         <source>しおり情報を取得できませんでした。</source>
         <translation>Could not retrieve the bookmark information.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8326"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8332"/>
         <source>しおりの名前を変更</source>
         <translation>Rename Bookmark</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8327"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8333"/>
         <source>新しい名前:</source>
         <translation>New name:</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8338"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8344"/>
         <source>名前を入力してください。</source>
         <translation>Enter a name.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="8423"/>
+        <location filename="../OfficePDFBinder_Main.py" line="8429"/>
         <source>対応するページが見つかりません。</source>
         <translation>The corresponding page could not be found.</translation>
     </message>
@@ -1120,29 +1120,29 @@ Check the installation folder.</translation>
 <context>
     <name>Worker</name>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1538"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1544"/>
         <source>予期しないエラー</source>
         <translation>Unexpected Error</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1539"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1545"/>
         <source>{task}の実行中にエラーが発生しました:
 {error}</source>
         <translation>An error occurred while running {task}:
 {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1557"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1563"/>
         <source>読み込み中 ({current}/{total}): {name}</source>
         <translation>Loading ({current}/{total}): {name}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1565"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1571"/>
         <source>ファイルが見つかりません</source>
         <translation>File Not Found</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1566"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1572"/>
         <source>&apos;{name}&apos;が見つかりません。ファイルが移動または削除されたか、ネットワークドライブが切断されている可能性があります。
 
 ファイルの場所を確認してください。</source>
@@ -1151,22 +1151,22 @@ Check the installation folder.</translation>
 Check the file location.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1575"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1581"/>
         <source>ファイルを読み取れません</source>
         <translation>Cannot Read File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1576"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1582"/>
         <source>&apos;{name}&apos;を読み取る権限がありません。別のアプリケーションで開かれていないか、ファイルのアクセス権限を確認してください。</source>
         <translation>You do not have permission to read &apos;{name}&apos;. Check whether it is open in another application and verify its access permissions.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1642"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1648"/>
         <source>PDFファイルを読み込めません</source>
         <translation>Cannot Load PDF File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1643"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1649"/>
         <source>&apos;{name}&apos;を読み込めませんでした。ファイルが破損、暗号化されているか、未対応の形式である可能性があります。
 
 エラー詳細: {error}</source>
@@ -1175,14 +1175,14 @@ Check the file location.</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1689"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2264"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1695"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2270"/>
         <source>画像ファイルを読み込めません</source>
         <translation>Cannot Load Image File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1690"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2265"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1696"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2271"/>
         <source>&apos;{name}&apos;を画像として読み込めませんでした。ファイルが破損しているか、未対応の画像形式である可能性があります。
 
 エラー詳細: {error}</source>
@@ -1191,12 +1191,12 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2543"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2549"/>
         <source>PDFに保存できるページがありません。Officeファイルを含む場合は、使用するOffice変換エンジンが利用できることと、対象ファイルを開けることを確認してください。</source>
         <translation>There are no pages to save as a PDF. If Office files were added, verify that the selected Office conversion engine is available and can open those files.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2588"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2594"/>
         <source>
 
 次のOfficeファイルは変換に失敗したため除外しました:
@@ -1211,29 +1211,29 @@ The following Office files were excluded because conversion failed:
 Verify that the selected Office conversion engine is available and can open those files.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2692"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2698"/>
         <source>{name}を読み込めないためスキップしました: {error}</source>
         <translation>Skipped {name} because it could not be loaded: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2800"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2806"/>
         <source>入力親フォルダが存在しません</source>
         <translation>Input Parent Folder Not Found</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2796"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2802"/>
         <source>入力親フォルダが存在しません:
 {path}</source>
         <translation>The input parent folder does not exist:
 {path}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2812"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2818"/>
         <source>出力フォルダを作成できません</source>
         <translation>Cannot Create Output Folder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2808"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2814"/>
         <source>出力フォルダを作成できません:
 {path}
 
@@ -1244,13 +1244,13 @@ Verify that the selected Office conversion engine is available and can open thos
 {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2830"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2843"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2836"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2849"/>
         <source>処理対象のサブフォルダがありません</source>
         <translation>There are no subfolders to process</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2836"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2842"/>
         <source>処理対象のサブフォルダがありません。
 
 ログ:
@@ -1261,60 +1261,60 @@ Log:
 {log}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2868"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2874"/>
         <source>同名PDFが既に存在するためスキップ</source>
         <translation>Skipped because a PDF with the same name already exists</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2855"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2861"/>
         <source>処理中: {current}/{total}
 {name} をPDF作成中...</source>
         <translation>Processing: {current}/{total}
 Creating PDF for {name}...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2895"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2901"/>
         <source>未対応ファイルをスキップ</source>
         <translation>Skipped unsupported files</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2903"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2909"/>
         <source>対象ファイルなし</source>
         <translation>No target files</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2946"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2952"/>
         <source>PDF保存に失敗しました</source>
         <translation>Failed to save the PDF</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2965"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2971"/>
         <source>一部のOfficeファイルを変換できませんでした</source>
         <translation>Some Office files could not be converted</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2976"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2982"/>
         <source>Office変換を再試行して成功: {count}件</source>
         <translation>Office conversion succeeded after retry: {count}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2059"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2120"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2065"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2126"/>
         <source>{app}ファイルを再試行中 ({attempt}/{total})...</source>
         <translation>Retrying {app} file ({attempt}/{total})...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2982"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2988"/>
         <source>Office変換エンジン: {engine}（{reason}）</source>
         <translation>Office conversion engine: {engine} ({reason})</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3017"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3023"/>
         <source>ユーザー操作により中止しました</source>
         <translation>Cancelled by user</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3022"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3028"/>
         <source>サブフォルダごとのPDF作成が完了しました。
 
 成功: {success}件
@@ -1341,98 +1341,98 @@ Log:
 {log}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1719"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1725"/>
         <source>ファイルの読み込みが完了しました。</source>
         <translation>Finished loading files.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1273"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1279"/>
         <source>pywin32またはWindows COMを利用できません</source>
         <translation>pywin32 or Windows COM is unavailable</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1299"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1305"/>
         <source>Office文書がないため変換エンジンを使用しません</source>
         <translation>No conversion engine is needed because there are no Office documents</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1316"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1322"/>
         <source>LibreOfficeが見つかりません</source>
         <translation>LibreOffice was not found</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1323"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1329"/>
         <source>LibreOfficeを起動できません</source>
         <translation>LibreOffice could not be started</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1387"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1393"/>
         <source>Office文書の既定アプリがLibreOffice系列です</source>
         <translation>The default app for Office documents is LibreOffice-based</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1399"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1405"/>
         <source>Office文書の既定アプリがMicrosoft Office系列です</source>
         <translation>The default app for Office documents is Microsoft Office-based</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1408"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1414"/>
         <source>既定アプリを優先できないため、利用可能なMicrosoft Officeを使用します</source>
         <translation>The default app could not be preferred, so available Microsoft Office will be used</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1354"/>
-        <location filename="../OfficePDFBinder_Main.py" line="1418"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1360"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1424"/>
         <source>Microsoft Officeを利用できないため、LibreOfficeを使用します</source>
         <translation>Microsoft Office is unavailable, so LibreOffice will be used</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1157"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1163"/>
         <source>Officeのマクロ無効化設定を確認できませんでした。</source>
         <translation>Could not verify that Office macros were disabled.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1208"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1214"/>
         <source>Officeのマクロセキュリティ設定を元に戻せませんでした。</source>
         <translation>Could not restore the Office macro security setting.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1345"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1351"/>
         <source>Microsoft Officeを優先して使用します</source>
         <translation>Microsoft Office will be preferred</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1366"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1372"/>
         <source>LibreOfficeを優先して使用します</source>
         <translation>LibreOffice will be preferred</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1373"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1379"/>
         <source>LibreOfficeを利用できないため、Microsoft Officeを使用します</source>
         <translation>LibreOffice is unavailable, so Microsoft Office will be used</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1426"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1432"/>
         <source>Microsoft OfficeとLibreOfficeのどちらも利用できません。Microsoft Office: {office_error} / LibreOffice: {libreoffice_error}</source>
         <translation>Neither Microsoft Office nor LibreOffice is available. Microsoft Office: {office_error} / LibreOffice: {libreoffice_error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1477"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1483"/>
         <source>LibreOfficeが異常終了しました（終了コード: {code}）{details}</source>
         <translation>LibreOffice exited unexpectedly (exit code: {code}){details}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1512"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1518"/>
         <source>LibreOfficeの出力PDFが作成されないか、破損しています{details}</source>
         <translation>The LibreOffice output PDF was not created or is damaged{details}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1711"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1717"/>
         <source>SVGファイルを読み込めません</source>
         <translation>Cannot Load SVG File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1712"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1718"/>
         <source>&apos;{name}&apos;をSVGとして読み込めませんでした。ファイルが破損しているか、未対応のSVGである可能性があります。
 
 エラー詳細: {error}</source>
@@ -1441,37 +1441,37 @@ Log:
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1723"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2835"/>
-        <location filename="../OfficePDFBinder_Main.py" line="3021"/>
-        <location filename="../OfficePDFBinder_Main.py" line="3035"/>
-        <location filename="../OfficePDFBinder_Main.py" line="4010"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1729"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2841"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3027"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3041"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4016"/>
         <source>完了</source>
         <translation>Completed</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1724"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1730"/>
         <source>ファイルの追加が完了しました。</source>
         <translation>Files were added successfully.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1729"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1735"/>
         <source>中止</source>
         <translation>Canceled</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1730"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1736"/>
         <source>処理を中止しました。</source>
         <translation>The operation was canceled.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1844"/>
-        <location filename="../OfficePDFBinder_Main.py" line="3817"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1850"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3823"/>
         <source>保存先フォルダーを作成できません</source>
         <translation>Cannot Create Output Folder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1845"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1851"/>
         <source>保存先フォルダー&apos;{path}&apos;を作成できませんでした。アクセス権限、パス、ディスクの空き容量を確認してください。
 
 エラー詳細: {error}</source>
@@ -1480,23 +1480,23 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1854"/>
-        <location filename="../OfficePDFBinder_Main.py" line="3827"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1860"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3833"/>
         <source>保存先に書き込めません</source>
         <translation>Cannot Write to Output Folder</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1855"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1861"/>
         <source>保存先フォルダー&apos;{path}&apos;に書き込む権限がありません。別の保存先を選択するか、アクセス権限を確認してください。</source>
         <translation>You do not have permission to write to &apos;{path}&apos;. Choose another output folder or check its permissions.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1868"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1874"/>
         <source>ディスクの空き容量が不足しています</source>
         <translation>Not Enough Disk Space</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1869"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1875"/>
         <source>保存先フォルダー&apos;{path}&apos;の空き容量が不足しています。
 
 現在の空き容量: {free:.1f} MB
@@ -1507,49 +1507,49 @@ Available: {free:.1f} MB
 Required: at least {required} MB</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1906"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2184"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2209"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2312"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2464"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1912"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2190"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2215"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2318"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2470"/>
         <source>無題</source>
         <translation>Untitled</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1968"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1974"/>
         <source>Office変換エンジンを利用できません</source>
         <translation>Office Conversion Engine Unavailable</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2000"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2006"/>
         <source>{app}ファイルを変換中...</source>
         <translation>Converting {app} files...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2024"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2030"/>
         <source>LibreOffice変換がタイムアウトしました（{seconds}秒）</source>
         <translation>LibreOffice conversion timed out after {seconds} seconds</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2170"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2176"/>
         <source>処理中: {name}</source>
         <translation>Processing: {name}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2519"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2525"/>
         <source>PDFを最適化して保存中...</source>
         <translation>Optimizing and saving PDF...</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2533"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2583"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2539"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2589"/>
         <source>
   理由: {detail}</source>
         <translation>
   Reason: {detail}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2537"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2543"/>
         <source>
 
 変換に失敗したOfficeファイル:
@@ -1560,7 +1560,7 @@ Office files that failed to convert:
 {files}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2542"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2548"/>
         <source>保存できるページがありません</source>
         <translation>No Pages to Save</translation>
     </message>
@@ -1569,22 +1569,22 @@ Office files that failed to convert:
         <translation type="vanished">There are no pages to save. If Office files were added, verify that Microsoft Office is installed and can open those files.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="1796"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2569"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2595"/>
+        <location filename="../OfficePDFBinder_Main.py" line="1802"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2575"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2601"/>
         <source>保存完了</source>
         <translation>Save Completed</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2570"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2576"/>
         <source>PDFを保存しました:
 {path}</source>
         <translation>PDF saved successfully:
 {path}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="2529"/>
-        <location filename="../OfficePDFBinder_Main.py" line="2579"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2535"/>
+        <location filename="../OfficePDFBinder_Main.py" line="2585"/>
         <source>・{file}（{app}）</source>
         <translation>• {file} ({app})</translation>
     </message>
@@ -1603,22 +1603,22 @@ The following Office files could not be converted and were skipped:
 Verify that Microsoft Office is installed and can open the files.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3058"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3064"/>
         <source>Office変換機能を利用できません</source>
         <translation>Office Conversion Is Unavailable</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3059"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3065"/>
         <source>Officeファイルの変換に必要なコンポーネントが見つかりません。アプリケーションを再インストールしてください。</source>
         <translation>A component required for Office conversion is missing. Reinstall the application.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3075"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3081"/>
         <source>{app}を起動できません</source>
         <translation>Cannot Start {app}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3078"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3084"/>
         <source>&apos;{name}&apos;を変換できませんでした。Microsoft {app}が正しくインストールされていることを確認し、{app}をすべて閉じてから再試行してください。
 
 エラー詳細: {error}</source>
@@ -1627,12 +1627,12 @@ Verify that Microsoft Office is installed and can open the files.</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3139"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3145"/>
         <source>{app}ファイルを変換できません</source>
         <translation>Cannot Convert {app} File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3142"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3148"/>
         <source>&apos;{name}&apos;を変換できませんでした。Microsoft {app}でファイルを開けること、破損やパスワード保護がないことを確認してください。
 
 エラー詳細: {error}</source>
@@ -1641,7 +1641,7 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3818"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3824"/>
         <source>保存先フォルダー&apos;{path}&apos;を作成できませんでした。
 
 エラー詳細: {error}</source>
@@ -1650,17 +1650,17 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3828"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3834"/>
         <source>保存先フォルダー&apos;{path}&apos;に書き込む権限がありません。</source>
         <translation>You do not have permission to write to the output folder &apos;{path}&apos;.</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3895"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3901"/>
         <source>Officeファイルを変換できません</source>
         <translation>Cannot Convert Office File</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3896"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3902"/>
         <source>Officeファイルの変換中にエラーが発生しました。
 
 エラー詳細: {error}</source>
@@ -1669,17 +1669,17 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3922"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3928"/>
         <source>画像に変換中: {name}</source>
         <translation>Converting to image: {name}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3991"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3997"/>
         <source>画像に変換できません</source>
         <translation>Cannot Convert to Image</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="3992"/>
+        <location filename="../OfficePDFBinder_Main.py" line="3998"/>
         <source>&apos;{name}&apos;を画像に変換できませんでした。
 
 エラー詳細: {error}</source>
@@ -1688,12 +1688,12 @@ Error details: {error}</translation>
 Error details: {error}</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4006"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4012"/>
         <source>画像の書き出しが完了しました</source>
         <translation>Finished exporting images</translation>
     </message>
     <message>
-        <location filename="../OfficePDFBinder_Main.py" line="4011"/>
+        <location filename="../OfficePDFBinder_Main.py" line="4017"/>
         <source>画像を書き出しました:
 {path}</source>
         <translation>Images exported successfully:

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$DestinationPath = "source.zip"
 )
 
@@ -35,7 +35,7 @@ $RequiredFiles = @(
     "requirements-dev.txt",
     "pytest.ini",
     "TESTING.md",
-    "docs\release-notes\v1.5.0.md",
+    "docs\release-notes\v1.5.1.md",
     "README.md",
     "README.ja.md",
     "README.html",

@@ -58,8 +58,8 @@ Microsoft Officeで変換する場合、文書は読み取り専用で開き、�
 GitHub Releases から最新版のインストーラーまたはポータブルZIPをダウンロードしてください。
 
 ```text
-OfficePDFBinder_Setup_1.5.0.exe
-OfficePDFBinder_Portable_1.5.0.zip
+OfficePDFBinder_Setup_1.5.1.exe
+OfficePDFBinder_Portable_1.5.1.zip
 ```
 
 インストーラーは現在のユーザー専用です。管理者として実行する必要はありません。旧版を全ユーザー向けにインストールしている場合は、その版を先にアンインストールしてください。Windows 11の最初の右クリックメニューに1項目を登録します。
@@ -68,7 +68,7 @@ OfficePDFBinder_Portable_1.5.0.zip
 
 ### インストール時の注意
 
-- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.5.0 をインストールしてください。
+- v1.0.0 をインストール済みの場合は、先に v1.0.0 をアンインストールしてから v1.5.1 をインストールしてください。
 - 本アプリは個人開発の未署名アプリです。環境によっては Windows SmartScreen などの警告が表示される場合があります。
 - Word / Excel / PowerPoint ファイルをPDF変換するには、Microsoft Office または LibreOffice のどちらかが必要です。再現性は一般的にMicrosoft Officeの方が高く、LibreOfficeはMicrosoft Officeを利用できない環境で有効です。
 
@@ -89,7 +89,7 @@ OfficePDFBinder_Portable_1.5.0.zip
 - 左右 90 度回転、上下移動、一番上 / 一番下への移動、削除ができます。
 - `Delete` キーで削除、`Ctrl+A` ですべて選択できます。
 - 複数ページを選択してドラッグ&ドロップで並び替えできます。
-- 選択したページを長押し（約0.5秒）すると、ページ移動モードに切り替わります。
+- 選択したページを長押し（約0.35秒）すると、カーソルが開いた手に変わり、ページ移動モードに切り替わります。
 
 ### 4.3 新規作成
 
