@@ -68,7 +68,7 @@ foreach ($Arch in $Architectures) {
  <uap:VisualElements AppListEntry="none" DisplayName="Office PDF Binder" Description="Office PDF Binder" BackgroundColor="transparent" Square150x150Logo="Assets\Logo150.png" Square44x44Logo="Assets\Logo44.png" />
  <Extensions><com:Extension Category="windows.comServer"><com:ComServer><com:ExeServer Executable="OfficePDFBinder_Shell.exe" DisplayName="Office PDF Binder Shell"><com:Class Id="F9869918-6F6D-4FC9-A8DF-70F43498A802" /></com:ExeServer><com:SurrogateServer DisplayName="Office PDF Binder"><com:Class Id="F9869918-6F6D-4FC9-A8DF-70F43498A804" Path="OfficePDFBinder_Explorer.dll" ThreadingModel="STA" /></com:SurrogateServer></com:ComServer></com:Extension>
  <desktop4:Extension Category="windows.fileExplorerContextMenus"><desktop4:FileExplorerContextMenus>$Verbs</desktop4:FileExplorerContextMenus></desktop4:Extension></Extensions>
- </Application></Applications><Capabilities><rescap:Capability Name="runFullTrust" /></Capabilities>
+ </Application></Applications><Capabilities><rescap:Capability Name="runFullTrust" /><rescap:Capability Name="unvirtualizedResources" /></Capabilities>
 </Package>
 "@ | Set-Content (Join-Path $Stage 'AppxManifest.xml') -Encoding utf8
     $Package = Join-Path $ArchOutput 'OfficePDFBinder.ContextMenu.msix'

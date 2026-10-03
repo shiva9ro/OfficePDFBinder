@@ -35,7 +35,7 @@ $RequiredFiles = @(
     "requirements-dev.txt",
     "pytest.ini",
     "TESTING.md",
-    "docs\release-notes\v1.5.2.md",
+    "docs\release-notes\v1.5.3.md",
     "README.md",
     "README.ja.md",
     "README.html",
