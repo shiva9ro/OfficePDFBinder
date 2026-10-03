@@ -1,10 +1,55 @@
 param(
     [Parameter(Mandatory)][string]$ApplicationDirectory,
-    [switch]$Unregister
+    [switch]$Unregister,
+    [switch]$InstallMachineCertificate,
+    [switch]$UninstallMachineCertificate
 )
 $ErrorActionPreference = 'Stop'
 $PackageName = 'OfficePDFBinder.ContextMenu'
 $OwnerKey = 'HKCU:\Software\OfficePDFBinder\ShellIntegration'
+$CurrentUserStore = 'Cert:\CurrentUser\TrustedPeople'
+$MachineStore = 'Cert:\LocalMachine\TrustedPeople'
+
+function Get-ShellIntegrationInfo {
+    $AppDir = (Resolve-Path -LiteralPath $ApplicationDirectory).Path.TrimEnd('\')
+    $Support = Join-Path $AppDir 'shell-integration'
+    $CertificatePath = Join-Path $Support 'OfficePDFBinder.ContextMenu.cer'
+    $Certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($CertificatePath)
+    if ($Certificate.Subject -ne 'CN=OfficePDFBinder.ContextMenu') {
+        throw 'Unexpected certificate publisher'
+    }
+
+    [pscustomobject]@{
+        AppDir          = $AppDir
+        Support         = $Support
+        CertificatePath = $CertificatePath
+        Thumbprint      = $Certificate.Thumbprint
+    }
+}
+
+function Install-MachineCertificate {
+    $Info = Get-ShellIntegrationInfo
+    if (-not (Test-Path -LiteralPath "$MachineStore\$($Info.Thumbprint)")) {
+        Import-Certificate -FilePath $Info.CertificatePath `
+            -CertStoreLocation $MachineStore | Out-Null
+    }
+}
+
+function Uninstall-MachineCertificate {
+    $Info = Get-ShellIntegrationInfo
+
+    $RemainingPackages = @(
+        Get-AppxPackage -AllUsers -Name $PackageName -ErrorAction Stop
+    )
+    if ($RemainingPackages.Count -ne 0) {
+        return
+    }
+
+    $CertificatePath = "$MachineStore\$($Info.Thumbprint)"
+    if (Test-Path -LiteralPath $CertificatePath) {
+        Remove-Item -LiteralPath $CertificatePath -Force
+    }
+}
 
 function Remove-LegacyMenu {
     foreach ($Extension in @('.pdf','.doc','.docx','.docm','.xls','.xlsx','.xlsm','.ppt','.pptx','.pptm',
@@ -20,34 +65,35 @@ function Remove-LegacyMenu {
 }
 
 function Invoke-ShellRegistration {
-    $AppDir = (Resolve-Path -LiteralPath $ApplicationDirectory).Path.TrimEnd('\')
-    $Support = Join-Path $AppDir 'shell-integration'
-    $Certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
-        (Join-Path $Support 'OfficePDFBinder.ContextMenu.cer'))
-    if ($Certificate.Subject -ne 'CN=OfficePDFBinder.ContextMenu') { throw 'Unexpected certificate publisher' }
-    $Thumbprint = $Certificate.Thumbprint
-    $Store = 'Cert:\CurrentUser\TrustedPeople'
+    $Info = Get-ShellIntegrationInfo
+    $AppDir = $Info.AppDir
+    $Support = $Info.Support
+    $Thumbprint = $Info.Thumbprint
     $Owner = Get-ItemProperty -LiteralPath $OwnerKey -ErrorAction SilentlyContinue
+
     if ($Unregister) {
         if ($Owner -and $Owner.InstallationDirectory -ne $AppDir) { return }
+
         Get-AppxPackage -Name $PackageName | Remove-AppxPackage
+
+        # Cleanup for installations made by older builds that owned a CurrentUser certificate.
         if ($Owner -and $Owner.OwnedCertificate -eq $Thumbprint -and
-            @(Get-AppxPackage -Name $PackageName).Count -eq 0 -and (Test-Path "$Store\$Thumbprint")) {
-            Remove-Item -LiteralPath "$Store\$Thumbprint"
+            @(Get-AppxPackage -Name $PackageName).Count -eq 0 -and
+            (Test-Path -LiteralPath "$CurrentUserStore\$Thumbprint")) {
+            Remove-Item -LiteralPath "$CurrentUserStore\$Thumbprint" -Force
         }
+
         if ($Owner) { Remove-Item -LiteralPath $OwnerKey -Recurse -Force }
         Remove-LegacyMenu
         return
     }
+
     Remove-LegacyMenu
     if ([Environment]::OSVersion.Version.Build -lt 22000) { return }
+
     New-Item -Path $OwnerKey -Force | Out-Null
     Set-ItemProperty -LiteralPath $OwnerKey -Name InstallationDirectory -Value $AppDir
-    if (-not (Test-Path "$Store\$Thumbprint")) {
-        Import-Certificate -FilePath (Join-Path $Support 'OfficePDFBinder.ContextMenu.cer') `
-            -CertStoreLocation $Store | Out-Null
-        Set-ItemProperty -LiteralPath $OwnerKey -Name OwnedCertificate -Value $Thumbprint
-    }
+
     Add-AppxPackage -Path (Join-Path $Support 'OfficePDFBinder.ContextMenu.msix') `
         -ExternalLocation $AppDir -ForceUpdateFromAnyVersion
 }
@@ -56,9 +102,32 @@ if ($MyInvocation.InvocationName -ne '.') {
     $LogFile = Join-Path $env:TEMP 'OfficePDFBinder-shell.log'
     try {
         "$(Get-Date -Format o) Unregister=$Unregister" | Add-Content $LogFile
-        Invoke-ShellRegistration
+
+        $ModeCount = @(
+            [bool]$Unregister,
+            [bool]$InstallMachineCertificate,
+            [bool]$UninstallMachineCertificate
+        ).Where({ $_ }).Count
+        if ($ModeCount -gt 1) {
+            throw 'Only one operation switch may be specified'
+        }
+
+        if ($InstallMachineCertificate) {
+            Install-MachineCertificate
+        }
+        elseif ($UninstallMachineCertificate) {
+            Uninstall-MachineCertificate
+        }
+        else {
+            Invoke-ShellRegistration
+        }
+
         'SUCCESS' | Add-Content $LogFile
         exit 0
     }
-    catch { $_ | Out-String | Add-Content $LogFile; Write-Error $_ -ErrorAction Continue; exit 1 }
+    catch {
+        $_ | Out-String | Add-Content $LogFile
+        Write-Error $_ -ErrorAction Continue
+        exit 1
+    }
 }

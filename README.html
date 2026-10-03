@@ -126,7 +126,7 @@ are added as files and converted to PDF when the combined PDF is saved.</p>
 <p><code>.pdf / .docx / .doc / .docm / .xlsx / .xls / .xlsm / .pptx / .ppt / .pptm / .png / .jpg / .jpeg / .bmp / .webp / .tif / .tiff / .heic / .heif / .hif / .svg</code></p>
 <hr />
 <h2>3. Installation and Portable Version</h2>
-<p>The installer installs for the current user only; administrator privileges are not required. Remove an older all-users installation before installing this version. The Windows 11 context menu contains one entry.</p>
+<p>The installer installs the application for the current user only. Administrator privileges are not required for the application itself, but Windows displays a UAC prompt when the Windows 11 context-menu signing certificate is added to the machine-wide <code>LocalMachine\TrustedPeople</code> certificate store. Remove an older all-users installation before installing this version. The Windows 11 context menu contains one entry.</p>
 <p>Download the latest installer or portable ZIP from GitHub Releases.</p>
 <p>The installer includes the application, this manual, license documents, and
 the corresponding source archive. The installer can be displayed in English
@@ -137,6 +137,16 @@ and English on other Windows language settings.</p>
 <ul>
 <li>Uninstall an older release before installing a version that cannot be
   upgraded in place.</li>
+<li>The Windows 11 context-menu package uses a signing certificate stored in
+  <code>LocalMachine\TrustedPeople</code>. Installing that certificate requires administrator
+  approval through UAC.</li>
+<li>During uninstall, the current user's context-menu package is removed first. If
+  another Windows user on the same PC still has the package installed, the
+  machine-wide certificate is kept. The certificate is removed, with UAC
+  approval, when the last installed user uninstalls Office PDF Binder.</li>
+<li>If the certificate usage query or cleanup fails, or UAC approval is declined,
+  the certificate is kept and application removal continues. Failure to remove
+  the context-menu package itself stops uninstallation.</li>
 <li>This is an unsigned independently developed application. Windows SmartScreen
   may display a warning.</li>
 <li>Microsoft Office or LibreOffice is required only for Word, Excel, and

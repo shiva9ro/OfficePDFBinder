@@ -1,5 +1,5 @@
-﻿#ifndef MyAppVersion
-#define MyAppVersion "1.5.1"
+#ifndef MyAppVersion
+#define MyAppVersion "1.5.2"
 #endif
 
 [Setup]
@@ -47,6 +47,8 @@ japanese.ModernMenuFailed=Windows 11のメニュー登録に失敗しました�
 
 english.MenuUninstallFailed=Context menu removal failed. Uninstallation was stopped to preserve its files. Close Office PDF Binder and retry. See %TEMP%\OfficePDFBinder-shell.log.
 japanese.MenuUninstallFailed=右クリックメニューの解除に失敗したため、アンインストールを中止しました。Office PDF Binderを閉じて再実行してください。ログ: %TEMP%\OfficePDFBinder-shell.log
+english.CertificateCleanupFailed=The context-menu signing certificate could not be removed. Uninstallation of the application will continue. The certificate may remain on this PC.
+japanese.CertificateCleanupFailed=右クリックメニュー用の署名証明書を削除できませんでした。アプリ本体のアンインストールは続行します。証明書がPCに残る場合があります。
 
 english.MachineInstallPresent=An all-users installation exists. Uninstall it first, then run this installer normally. This version installs for the current user only.
 japanese.MachineInstallPresent=全ユーザー向けのOffice PDF Binderが既にインストールされています。先にその版をアンインストールし、このインストーラーを通常起動してください。今後は現在のユーザー専用でインストールします。
@@ -113,6 +115,7 @@ function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
   Arguments: String;
+  CertificateCleanupSucceeded: Boolean;
 begin
   Result := True;
   if not FileExists(ExpandConstant('{app}\shell-integration\registered.txt')) then Exit;
@@ -123,7 +126,25 @@ begin
     Arguments, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   if Result then Result := ResultCode = 0;
   if not Result then
+  begin
     MsgBox(ExpandConstant('{cm:MenuUninstallFailed}'), mbError, MB_OK);
+    Exit;
+  end;
+
+  { Certificate cleanup is best effort; it must not block application removal. }
+  Arguments := '-NoProfile -ExecutionPolicy Bypass -File "' +
+    ExpandConstant('{app}\shell-integration\register_sparse_package.ps1') +
+    '" -ApplicationDirectory "' + ExpandConstant('{app}') + '" -UninstallMachineCertificate';
+  CertificateCleanupSucceeded := ShellExec('runas',
+    ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    Arguments, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if CertificateCleanupSucceeded then
+    CertificateCleanupSucceeded := ResultCode = 0;
+  if not CertificateCleanupSucceeded then
+  begin
+    Log(Format('Certificate cleanup did not complete (code %d); continuing uninstall.', [ResultCode]));
+    SuppressibleMsgBox(ExpandConstant('{cm:CertificateCleanupFailed}'), mbInformation, MB_OK, IDOK);
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -142,21 +163,40 @@ begin
     if WizardIsTaskSelected('modernmenu') then
     begin
       SaveStringToFile(ExpandConstant('{app}\shell-integration\registered.txt'), 'attempted', False);
+
       Arguments := '-NoProfile -ExecutionPolicy Bypass -File "' +
         ExpandConstant('{app}\shell-integration\register_sparse_package.ps1') +
-        '" -ApplicationDirectory "' + ExpandConstant('{app}') + '"';
-      Started := ExecAsOriginalUser(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-        Arguments, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      if Started then
-      begin
-        if ResultCode = 0 then
-        begin
-          SaveStringToFile(ExpandConstant('{app}\shell-integration\registered.txt'), 'registered', False);
+        '" -ApplicationDirectory "' + ExpandConstant('{app}') +
+        '" -InstallMachineCertificate';
 
-        end
-        else
-          MsgBox(ExpandConstant('{cm:ModernMenuFailed}'), mbError, MB_OK);
-      end
+      Started := ShellExec(
+        'runas',
+        ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+        Arguments,
+        '',
+        SW_HIDE,
+        ewWaitUntilTerminated,
+        ResultCode
+      );
+
+      if Started and (ResultCode = 0) then
+      begin
+        Arguments := '-NoProfile -ExecutionPolicy Bypass -File "' +
+          ExpandConstant('{app}\shell-integration\register_sparse_package.ps1') +
+          '" -ApplicationDirectory "' + ExpandConstant('{app}') + '"';
+
+        Started := ExecAsOriginalUser(
+          ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+          Arguments,
+          '',
+          SW_HIDE,
+          ewWaitUntilTerminated,
+          ResultCode
+        );
+      end;
+
+      if Started and (ResultCode = 0) then
+        SaveStringToFile(ExpandConstant('{app}\shell-integration\registered.txt'), 'registered', False)
       else
         MsgBox(ExpandConstant('{cm:ModernMenuFailed}'), mbError, MB_OK);
     end;

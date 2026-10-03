@@ -221,3 +221,10 @@ Explorer DLLとSparse Package（x64・ARM64）を作成してから、全pytest�
 必要ファイルの欠落、およびIPC・Explorer・登録解除テストのスキップはCI失敗とします。
 結果のXMLはActionsの `windows-test-results` からダウンロードできます。
 ARM64での動作、実際の右クリック表示・前面化・インストールは別途手動確認します。
+
+証明書の後片付けの回帰確認は、`tests/test_shell_registration.py` と
+`tests/test_installer_cleanup.py` で実施します。後者はInno Setup 6が必要です。
+実際のアンインストール判断コードを抽出し、外部操作を模擬化したEXEで、
+証明書の照会・削除失敗やUAC拒否では本体削除を続行し、
+パッケージ自体の解除失敗では中止することを検証します。
+実際の証明書やパッケージを削除するテストではありません。

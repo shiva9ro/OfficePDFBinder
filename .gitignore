@@ -47,6 +47,14 @@ tests/artifacts/
 tests/test_bookmark_debug.py
 tests/test_dd.bat
 tests/test_ipc.ps1
+tests/work_install_cycle.ps1
+# Local investigation notes; not release documentation
+docs/bug-audit-2026-09-29.md
+docs/followup-regression-2026-10-01.md
+docs/full-regression-checklist-2026-10-01.md
+docs/ipc-console-crash-2026-10-01.md
+docs/shell-integration-review-2026-10-01.md
+docs/verification-2026-10-03.md
 samples/
 docs/presentation/
 docs/OfficePDFBinder_Main.pdf

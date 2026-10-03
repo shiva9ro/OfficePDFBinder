@@ -60,7 +60,7 @@ Supported extensions:
 
 ## 3. Installation and Portable Version
 
-The installer installs for the current user only; administrator privileges are not required. Remove an older all-users installation before installing this version. The Windows 11 context menu contains one entry.
+The installer installs the application for the current user only. Administrator privileges are not required for the application itself, but Windows displays a UAC prompt when the Windows 11 context-menu signing certificate is added to the machine-wide `LocalMachine\TrustedPeople` certificate store. Remove an older all-users installation before installing this version. The Windows 11 context menu contains one entry.
 
 Download the latest installer or portable ZIP from GitHub Releases.
 
@@ -75,6 +75,16 @@ and English on other Windows language settings.
 
 - Uninstall an older release before installing a version that cannot be
   upgraded in place.
+- The Windows 11 context-menu package uses a signing certificate stored in
+  `LocalMachine\TrustedPeople`. Installing that certificate requires administrator
+  approval through UAC.
+- During uninstall, the current user's context-menu package is removed first. If
+  another Windows user on the same PC still has the package installed, the
+  machine-wide certificate is kept. The certificate is removed, with UAC
+  approval, when the last installed user uninstalls Office PDF Binder.
+- If the certificate usage query or cleanup fails, or UAC approval is declined,
+  the certificate is kept and application removal continues. Failure to remove
+  the context-menu package itself stops uninstallation.
 - This is an unsigned independently developed application. Windows SmartScreen
   may display a warning.
 - Microsoft Office or LibreOffice is required only for Word, Excel, and
