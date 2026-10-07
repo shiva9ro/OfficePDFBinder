@@ -1274,18 +1274,26 @@ def test_word_external_content_security_disables_link_updates():
     assert options.UpdateLinksAtPrint is False
 
 
-def test_excel_external_content_security_disables_links_events_and_calculation():
-    app = SimpleNamespace(
-        AskToUpdateLinks=True,
-        EnableEvents=True,
-        Calculation=123,
-    )
+def test_excel_external_content_security_preserves_calculation_mode():
+    class ExcelWithoutWorkbook:
+        AskToUpdateLinks = True
+        EnableEvents = True
+
+        @property
+        def Calculation(self):
+            return 123
+
+        @Calculation.setter
+        def Calculation(self, value):
+            raise RuntimeError("Cannot set Calculation without an open workbook")
+
+    app = ExcelWithoutWorkbook()
 
     AppWorker._configure_office_external_content_security(app, "Excel")
 
     assert app.AskToUpdateLinks is False
     assert app.EnableEvents is False
-    assert app.Calculation == app_module.EXCEL_CALCULATION_MANUAL
+    assert app.Calculation == 123
 
 
 @pytest.mark.parametrize(

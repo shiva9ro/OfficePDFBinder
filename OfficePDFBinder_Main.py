@@ -555,7 +555,6 @@ EXCEL_PRINT_NO_COMMENTS = -4142  # xlPrintNoComments
 POWERPOINT_SAVE_AS_PDF_FORMAT = 32  # ppSaveAsPDF
 MSO_AUTOMATION_SECURITY_FORCE_DISABLE = 3  # msoAutomationSecurityForceDisable
 EXCEL_UPDATE_LINKS_NEVER = 0
-EXCEL_CALCULATION_MANUAL = -4135  # xlCalculationManual
 OFFICE_CONVERTER_AUTO = "auto"
 OFFICE_CONVERTER_MICROSOFT = "microsoft-office"
 OFFICE_CONVERTER_LIBREOFFICE = "libreoffice"
@@ -1148,7 +1147,6 @@ class AppWorker(QRunnable):
         elif app_name == "Excel":
             app.AskToUpdateLinks = False
             app.EnableEvents = False
-            app.Calculation = EXCEL_CALCULATION_MANUAL
 
     @staticmethod
     def _open_office_document_safely(app, app_name, office_path):
